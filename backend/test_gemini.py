@@ -2,6 +2,7 @@
 """Test Gemini API key configuration"""
 
 from app.core.config import settings
+from app.services.integrations.token_company import TokenCompanyClient
 import requests
 
 def test_api_key_loaded():
@@ -43,10 +44,14 @@ def test_gemini_connection():
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_to_use}:generateContent?key={api_key}"
         
         headers = {"Content-Type": "application/json"}
+        prompt = "Say 'Hello from Veritas' in one sentence."
+        token_client = TokenCompanyClient()
+        compressed = token_client.compress_input(prompt, aggressiveness=0.8)
+
         data = {
             "contents": [{
                 "parts": [{
-                    "text": "Say 'Hello from Veritas' in one sentence."
+                    "text": compressed["output"]
                 }]
             }]
         }
@@ -61,6 +66,8 @@ def test_gemini_connection():
         print(f"✅ API call successful!")
         print(f"   Response: {text}")
         print(f"   Model: {model_to_use}")
+        if compressed.get("compressed"):
+            print(f"   Token Company: compressed prompt")
         
         return True
         
