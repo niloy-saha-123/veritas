@@ -1,6 +1,7 @@
 # Environment config loader - manages API keys, ports, and app settings from .env
 
 from pydantic_settings import BaseSettings
+from pydantic import ConfigDict
 from typing import List
 import os
 from dotenv import load_dotenv
@@ -34,9 +35,10 @@ class Settings(BaseSettings):
     LEANMCP_API_KEY: str = os.getenv("LEANMCP_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
-    class Config:
-        env_file = ".env"
-        case_sensitive = True
+    model_config = ConfigDict(
+        env_file=".env",
+        case_sensitive=True,
+    )
 
 
 # Global settings instance

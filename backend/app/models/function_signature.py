@@ -13,10 +13,10 @@ class FunctionSignature:
     """Represents a parsed function from code"""
     name: str
     parameters: List[Parameter]
-    return_type: Optional[str] = None
-    docstring: Optional[str] = None
     line_number: int
     file_path: str
+    return_type: Optional[str] = None
+    docstring: Optional[str] = None
     
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
