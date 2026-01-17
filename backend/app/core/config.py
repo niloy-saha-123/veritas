@@ -32,6 +32,7 @@ class Settings(BaseSettings):
     DEVSWARM_API_KEY: str = os.getenv("DEVSWARM_API_KEY", "")
     ARIZE_API_KEY: str = os.getenv("ARIZE_API_KEY", "")
     LEANMCP_API_KEY: str = os.getenv("LEANMCP_API_KEY", "")
+    GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
     class Config:
         env_file = ".env"
