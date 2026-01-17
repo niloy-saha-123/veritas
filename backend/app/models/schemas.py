@@ -52,3 +52,43 @@ class AnalysisResponse(BaseModel):
     summary: str
     timestamp: datetime = Field(default_factory=datetime.utcnow)
     metadata: Optional[Dict[str, Any]] = None
+
+
+# ============================================================================
+# PARSER MODELS - Used by Person A's parsers to return function signatures
+# ============================================================================
+
+class Parameter(BaseModel):
+    """Single function parameter with type info."""
+    name: str
+    type: Optional[str] = None  # Type annotation if available
+    default: Optional[str] = None  # Default value if any
+    
+    def __repr__(self):
+        if self.type and self.default:
+            return f"{self.name}: {self.type} = {self.default}"
+        elif self.type:
+            return f"{self.name}: {self.type}"
+        elif self.default:
+            return f"{self.name}={self.default}"
+        return self.name
+
+
+class FunctionSignature(BaseModel):
+    """Extracted function signature from code."""
+    name: str  # Function name
+    params: List[Parameter] = []  # List of parameters
+    return_type: Optional[str] = None  # Return type annotation
+    docstring: Optional[str] = None  # Docstring content
+    line_number: int = 0  # Line where function starts
+    is_async: bool = False  # async functions
+    is_method: bool = False  # True if inside a class
+    class_name: Optional[str] = None  # Parent class name if method
+    filename: Optional[str] = None  # Source file
+    
+    def __repr__(self):
+        params_str = ", ".join(str(p) for p in self.params)
+        ret = f" -> {self.return_type}" if self.return_type else ""
+        prefix = "async " if self.is_async else ""
+        return f"{prefix}def {self.name}({params_str}){ret}"
+
