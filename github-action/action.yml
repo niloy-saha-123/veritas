@@ -1,0 +1,42 @@
+name: 'Veritas Documentation Verification'
+description: 'Automated documentation-code verification for CI/CD pipelines'
+author: 'Veritas.dev Team'
+
+branding:
+  icon: 'check-circle'
+  color: 'purple'
+
+inputs:
+  api-key:
+    description: 'Veritas API key for authentication'
+    required: false
+  api-url:
+    description: 'Veritas API endpoint URL'
+    required: false
+    default: 'https://api.veritas.dev/v1'
+  code-path:
+    description: 'Path to code directory'
+    required: true
+    default: './src'
+  docs-path:
+    description: 'Path to documentation directory'
+    required: true
+    default: './docs'
+  language:
+    description: 'Primary programming language'
+    required: false
+    default: 'python'
+  fail-on-discrepancy:
+    description: 'Fail the build if discrepancies are found'
+    required: false
+    default: 'false'
+
+outputs:
+  discrepancies-found:
+    description: 'Number of discrepancies found'
+  analysis-report:
+    description: 'URL to detailed analysis report'
+
+runs:
+  using: 'node20'
+  main: 'src/index.js'
