@@ -18,7 +18,7 @@ def test_github_agent():
     print("=" * 80)
     
     # Test with your test repo
-    test_repo = "https://github.com/niloy-saha-123/test_repo"
+    test_repo = "https://github.com/aaeekaayyyyyy/testforveritas"
     # Or use another test repo:
     # test_repo = "https://github.com/fastapi/fastapi"
     

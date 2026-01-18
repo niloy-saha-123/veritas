@@ -34,9 +34,16 @@ class HybridComparator:
     - Low embedding similarity (<0.6): Mark as different, use LLM only if needed
     """
     
-    def __init__(self):
+    def __init__(self, use_token_company: bool = True):
+        """
+        Initialize HybridComparator.
+        
+        Args:
+            use_token_company: If True, use Token Company to compress prompts before sending to Gemini.
+                              If False, send prompts directly without compression.
+        """
         self.embedding_matcher = SemanticMatcher()
-        self.llm_comparator = GeminiComparator()
+        self.llm_comparator = GeminiComparator(use_token_company=use_token_company)
         # Optimized thresholds for speed (more embedding-only, fewer LLM calls)
         self.embedding_threshold_high = 0.80  # Above this, trust embedding only (was 0.85, now lower = more cases use embeddings)
         self.embedding_threshold_medium = 0.55  # Between this and high, use LLM (was 0.60, now lower gap = fewer LLM calls)
@@ -136,8 +143,9 @@ class HybridComparator:
         # Still do a quick check for obvious mismatches
         issues = self._quick_issue_check(code_func, doc_func)
         
+        # More lenient matching - 70% is good enough for high similarity matches
         return HybridComparisonResult(
-            matches=confidence >= 80,
+            matches=confidence >= 70,  # Lowered from 80 to 70 to be less harsh
             confidence=confidence,
             issues=issues,
             embedding_score=similarity.score,
@@ -166,8 +174,9 @@ class HybridComparator:
             0.6 * llm_confidence
         )
         
+        # More lenient matching - 70% is good enough for hybrid matches
         return HybridComparisonResult(
-            matches=combined_confidence >= 80,
+            matches=combined_confidence >= 70,  # Lowered from 80 to 70 to be less harsh
             confidence=combined_confidence,
             issues=llm_result.issues,
             embedding_score=similarity.score,

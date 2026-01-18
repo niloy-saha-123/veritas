@@ -14,9 +14,21 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
     - Parameters sections with parameter lists
     - Code blocks with function signatures
     - Inline function references: `functionName(params)`
+    - Function names extracted from filenames (e.g., doc_mergeSortedArrays.md -> mergeSortedArrays)
     """
     functions = []
     lines = code.split('\n')
+    
+    # Try to extract function name from filename if no heading found
+    # e.g., doc_mergeSortedArrays.md -> mergeSortedArrays
+    filename_func_name = None
+    if filename:
+        import os
+        base_name = os.path.splitext(os.path.basename(filename))[0]
+        # Remove common prefixes: doc_, doc-
+        name = re.sub(r'^doc[-_]?', '', base_name, flags=re.IGNORECASE)
+        if name and name != base_name:  # Only use if we actually stripped something
+            filename_func_name = name
     
     in_code_block = False
     code_block_lang = ""
@@ -118,16 +130,46 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
             inline_funcs = [f for f in inline_funcs if len(f.name) > 2 and not f.name.lower() in ['if', 'for', 'while', 'return']]
             functions.extend(inline_funcs)
     
-    # Finalize last heading if it looks like a function name
-    if current_heading and _looks_like_function_name(current_heading):
-        func = _parse_function_from_heading(
-            current_heading,
-            current_heading_line,
-            current_section_content,
+    # Prioritize filename-derived function name over headings
+    # If filename matches function pattern (e.g., doc_mergeSortedArrays.md), use that
+    if filename_func_name and _looks_like_function_name(filename_func_name):
+        # Use filename-derived name - parse entire document as that function
+        # This handles cases where docs don't have proper headings but filename indicates function
+        func = _parse_function_from_content(
+            filename_func_name,
+            lines,
             filename
         )
         if func:
             functions.append(func)
+    # Otherwise, finalize last heading if it looks like a function name
+    elif current_heading and _looks_like_function_name(current_heading):
+        # Only use heading if it's NOT obviously just descriptive text
+        # Skip headings like "Perfect Documentation", "Overview", etc.
+        skip_descriptive_words = ['perfect', 'documentation', 'description', 'overview', 
+                                 'introduction', 'guide', 'tutorial', 'example', 'examples']
+        heading_lower = current_heading.lower()
+        is_descriptive = any(word in heading_lower for word in skip_descriptive_words)
+        
+        if not is_descriptive:
+            func = _parse_function_from_heading(
+                current_heading,
+                current_heading_line,
+                current_section_content,
+                filename
+            )
+            if func:
+                functions.append(func)
+    
+    # If still no functions found, try parsing from filename one more time
+    if not functions and filename:
+        import os
+        base_name = os.path.splitext(os.path.basename(filename))[0]
+        name = re.sub(r'^doc[-_]?', '', base_name, flags=re.IGNORECASE)
+        if name and name != base_name and _looks_like_function_name(name):
+            func = _parse_function_from_content(name, lines, filename)
+            if func:
+                functions.append(func)
     
     # Deduplicate functions by name (keep first occurrence)
     seen_names = set()
@@ -205,6 +247,16 @@ def _looks_like_function_name(text: str) -> bool:
     return False
 
 
+def _parse_function_from_content(func_name: str, lines: List[str], filename: str) -> FunctionSignature:
+    """
+    Parse a markdown file as a single function documentation when no headings are present.
+    Extracts function name from filename and parses Parameters/Returns from plain text.
+    """
+    # Convert lines to section content for parsing
+    section_content = lines
+    return _parse_function_from_heading(func_name, 1, section_content, filename)
+
+
 def _parse_function_from_heading(heading: str, heading_line: int, section_content: List[str], filename: str) -> FunctionSignature:
     """Parse a function from a heading and its section content."""
     # Extract function name (remove backticks if present)
@@ -218,35 +270,76 @@ def _parse_function_from_heading(heading: str, heading_line: int, section_conten
     section_text = '\n'.join(section_content)
     
     # Extract Parameters section content
-    params_match = re.search(r'(?:###\s+Parameters?|##\s+Parameters?)\s*\n(.*?)(?=\n###|\n##|\Z)', section_text, re.DOTALL | re.IGNORECASE)
-    if params_match:
-        params_section = params_match.group(1)
-        # Pattern: - `param_name` (type): description
+    # Try multiple patterns: with headings, without headings (direct "Parameters" text)
+    params_patterns = [
+        r'(?:###\s+Parameters?|##\s+Parameters?)\s*\n(.*?)(?=\n###|\n##|\nReturns|\Z)',  # With heading
+        r'^Parameters?\s*\n(.*?)(?=\nReturns|\n###|\n##|\Z)',  # Direct "Parameters" text (no heading)
+    ]
+    
+    params_section = None
+    for pattern in params_patterns:
+        params_match = re.search(pattern, section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+        if params_match:
+            params_section = params_match.group(1)
+            break
+    
+    if params_section:
+        # Pattern: - `param_name` (type): description OR `param_name` (type): description
+        # Or: param_name (type): description (no dash, no backticks)
         # Or: - `param_name`: description (no type)
+        # Or: param_name: description (no dash, no backticks, no type)
         param_patterns = [
-            r'[-*]\s*`(\w+)`\s*\(([^)]+)\)',  # `name` (type): desc
-            r'[-*]\s*`(\w+)`\s*:',             # `name`: desc (no type)
+            r'[-*]\s*`(\w+)`\s*\(([^)]+)\)\s*:',  # `name` (type): desc
+            r'[-*]\s*`(\w+)`\s*:',                 # `name`: desc (no type)
+            r'^(\w+)\s*\(([^)]+)\)\s*:',          # name (type): desc (no dash, no backticks)
+            r'^(\w+)\s*:',                         # name: desc (no dash, no backticks, no type)
         ]
         
-        for pattern in param_patterns:
-            for match in re.finditer(pattern, params_section):
-                param_name = match.group(1)
-                # Extract type if pattern has second group (pattern with type)
-                param_type = None
-                if len(match.groups()) > 1:
-                    try:
-                        param_type = match.group(2).strip() if match.group(2) else None
-                    except IndexError:
-                        param_type = None
-                # Only add if not already added
-                if not any(p.name == param_name for p in params):
-                    params.append(Parameter(name=param_name, type=param_type))
+        # Split into lines and parse each line
+        for line in params_section.split('\n'):
+            line = line.strip()
+            if not line or line.startswith('#'):  # Skip empty lines and headings
+                continue
+            
+            # Try each pattern in order
+            for pattern in param_patterns:
+                match = re.match(pattern, line)
+                if match:
+                    param_name = match.group(1)
+                    param_type = None
+                    # Check if pattern captured a type (has second group)
+                    if len(match.groups()) >= 2 and match.group(2):
+                        param_type = match.group(2).strip()
+                    # Only add if not already added
+                    if not any(p.name == param_name for p in params):
+                        params.append(Parameter(name=param_name, type=param_type))
+                    break  # Found match, move to next line
     
     # Find Returns section - look for pattern like "- `float`: The total price..."
     # Or "Returns: `float`" or "### Returns\n- `float`: ..."
-    returns_match = re.search(r'(?:###\s+Returns?|##\s+Returns?)\s*\n.*?[-*]\s*`([^`]+)`', section_text, re.DOTALL | re.IGNORECASE)
-    if returns_match:
-        return_type = returns_match.group(1).strip().rstrip('.,;')
+    # Or "Returns\nfloat: description" (no heading markdown, no dash)
+    # Or "Returns\ntype: description" (simple format)
+    returns_patterns = [
+        r'(?:###\s+Returns?|##\s+Returns?)\s*\n.*?[-*]\s*`([^`]+)`',  # With heading markdown
+        r'^Returns?\s*\n.*?[-*]\s*`([^`]+)`',                         # Direct "Returns" text
+        r'(?:###\s+Returns?|##\s+Returns?)\s*\n(.*?)(?=\n###|\n##|\n[A-Z]|\Z)',  # With heading, capture content
+        r'^Returns?\s*\n([^\n]+)',                                    # Direct "Returns" text, capture next line
+    ]
+    
+    return_type = None
+    for pattern in returns_patterns:
+        returns_match = re.search(pattern, section_text, re.DOTALL | re.IGNORECASE | re.MULTILINE)
+        if returns_match:
+            return_type_str = returns_match.group(1).strip().rstrip('.,;')
+            # Extract type from formats like "number[]: description" or just "number[]"
+            # Remove description if present (everything after first colon)
+            if ':' in return_type_str:
+                return_type_str = return_type_str.split(':', 1)[0].strip()
+            # Remove backticks if present
+            return_type_str = return_type_str.strip('`')
+            if return_type_str:
+                return_type = return_type_str
+                break
     
     return FunctionSignature(
         name=func_name,

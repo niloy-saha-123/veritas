@@ -22,7 +22,7 @@ def match_functions(
         matches_with_scores = matcher.find_best_matches(
             code_functions, 
             doc_functions,
-            threshold=0.5  # Only match if similarity >= 0.5
+            threshold=0.4  # Lowered from 0.5 to 0.4 to catch more matches (camelCase vs snake_case, etc.)
         )
         # Extract just the function pairs (ignore similarity scores for now)
         matches = [(code_func, doc_func) for code_func, doc_func, _ in matches_with_scores]
@@ -48,6 +48,7 @@ def analyze_repository(
     code_functions: List[FunctionSignature],
     doc_functions: List[FunctionSignature],
     use_hybrid: bool = True,
+    use_token_company: bool = True,
 ) -> Dict[str, Any]:
     """
     Analyze repository using ML-enhanced hybrid comparison.
@@ -56,15 +57,17 @@ def analyze_repository(
         code_functions: Functions extracted from code
         doc_functions: Functions extracted from documentation
         use_hybrid: If True, use hybrid engine (embeddings + LLM). If False, use LLM only.
+        use_token_company: If True, use Token Company to compress prompts before sending to Gemini.
+                          If False, send prompts directly without compression.
     
     Returns:
         Analysis results with trust score, verified count, and issues
     """
     # Use hybrid comparator (embeddings + LLM) or LLM-only
     if use_hybrid:
-        comparator = HybridComparator()
+        comparator = HybridComparator(use_token_company=use_token_company)
     else:
-        comparator = GeminiComparator()
+        comparator = GeminiComparator(use_token_company=use_token_company)
     
     # Use semantic matching for better function pairing
     matches = match_functions(code_functions, doc_functions, use_semantic_matching=True)
@@ -94,7 +97,9 @@ def analyze_repository(
                 docs_say=f"Documents {doc_func.name}()",
                 suggested_fix="Remove from documentation or check if it was renamed",
             ))
-            confidence_scores.append(0)
+            # Give partial credit (30%) instead of 0 - this is less harsh and more realistic
+            # A missing function is not as bad as a completely wrong function
+            confidence_scores.append(30)
             methods_used.append("unmatched")
         elif doc_func is None:
             func_name = code_func.name
@@ -108,7 +113,9 @@ def analyze_repository(
                 docs_say="No documentation found",
                 suggested_fix="Add documentation for this function",
             ))
-            confidence_scores.append(0)
+            # Give partial credit (50%) instead of 0 - missing docs is less critical than wrong docs
+            # The function exists and works, just undocumented
+            confidence_scores.append(50)
             methods_used.append("unmatched")
         else:
             func_name = f"{code_func.name} ↔ {doc_func.name}"
@@ -140,8 +147,9 @@ def analyze_repository(
             
             confidence = result_comp.confidence
             
-            # Consider verified if confidence >= 80 (semantic equivalence)
-            if confidence >= 80:
+            # Consider verified if confidence >= 70 (more lenient threshold for semantic equivalence)
+            # Lowered from 80 to 70 to be less harsh - even partial matches with minor differences are acceptable
+            if confidence >= 70:
                 verified += 1
             else:
                 # Only report issues if confidence is below threshold

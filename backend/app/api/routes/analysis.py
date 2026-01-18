@@ -376,11 +376,13 @@ async def analyze_github_repo(request: GitHubAnalysisRequest):
         print(f"🔧 Found {len(all_code_functions)} code functions and {len(all_doc_functions)} doc functions")
         
         # Analyze entire repository using hybrid engine
-        print("🧠 Running intelligent analysis with hybrid ML engine...")
+        print(f"🧠 Running intelligent analysis with hybrid ML engine...")
+        print(f"   Token Company compression: {'enabled' if request.use_token_company else 'disabled'}")
         result = analyze_repository(
             all_code_functions,
             all_doc_functions,
-            use_hybrid=True
+            use_hybrid=True,
+            use_token_company=request.use_token_company
         )
         
         discrepancies = _issues_to_discrepancies(result["issues"])

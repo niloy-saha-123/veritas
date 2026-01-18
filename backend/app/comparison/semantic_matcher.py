@@ -141,6 +141,16 @@ class SemanticMatcher:
         # Normalize to 0-1 range (cosine similarity is -1 to 1)
         return max(0, (similarity + 1) / 2)
     
+    def _normalize_name(self, name: str) -> str:
+        """Normalize function name to handle camelCase, snake_case, etc."""
+        import re
+        # Convert camelCase to snake_case
+        # e.g., "calculateFactorial" -> "calculate_factorial"
+        s1 = re.sub('(.)([A-Z][a-z]+)', r'\1_\2', name)
+        s2 = re.sub('([a-z0-9])([A-Z])', r'\1_\2', s1)
+        normalized = s2.lower().replace('_', ' ')
+        return normalized
+    
     def _name_similarity(self, name1: str, name2: str) -> float:
         """Compute name similarity using edit distance and common patterns."""
         name1_lower = name1.lower()
@@ -150,18 +160,30 @@ class SemanticMatcher:
         if name1_lower == name2_lower:
             return 1.0
         
-        # Check for common patterns (e.g., "calculate_total" vs "calc_total")
-        # Simple heuristic: count common words/suffixes
-        words1 = set(name1_lower.replace('_', ' ').split())
-        words2 = set(name2_lower.replace('_', ' ').split())
+        # Normalize names (camelCase -> snake_case -> words)
+        norm1 = self._normalize_name(name1)
+        norm2 = self._normalize_name(name2)
+        
+        # Check if normalized names match
+        if norm1 == norm2:
+            return 0.95  # Very high similarity (same words, different format)
+        
+        # Check for common words (e.g., "calculate factorial" vs "calc factorial")
+        words1 = set(norm1.split())
+        words2 = set(norm2.split())
         
         if words1 and words2:
             common = len(words1 & words2)
             total = len(words1 | words2)
             if total > 0:
                 jaccard = common / total
-                if jaccard > 0.5:
-                    return jaccard
+                # If most words match, give high similarity
+                if jaccard >= 0.7:
+                    return 0.85  # High similarity
+                elif jaccard >= 0.5:
+                    return 0.70  # Good similarity
+                elif jaccard > 0.3:
+                    return 0.50  # Moderate similarity
         
         # Levenshtein distance (simple approximation)
         return self._levenshtein_similarity(name1_lower, name2_lower)
