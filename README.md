@@ -5,7 +5,7 @@
 
 ---
 
-## 🏗️ Project Structure
+## Project Structure
 
 ```
 nexhacks/
@@ -17,73 +17,61 @@ nexhacks/
 │   │   │       ├── health.py  # Health check endpoints
 │   │   │       └── analysis.py # Analysis endpoints
 │   │   ├── core/              # Core functionality
-│   │   │   ├── config.py      # Configuration management
-│   │   │   └── detection_engine.py # Discrepancy detection
+│   │   │   └── config.py      # Configuration management
 │   │   ├── services/          # Business logic
 │   │   │   ├── code_parser.py # Code parsing service
 │   │   │   ├── doc_parser.py  # Documentation parsing
 │   │   │   ├── comparator.py  # Comparison logic
 │   │   │   └── integrations/  # Sponsor API integrations
-│   │   │       ├── token_company.py
-│   │   │       ├── devswarm.py
-│   │   │       └── arize.py
+│   │   ├── parsers/           # Language parsers
+│   │   │   ├── parser_factory.py
+│   │   │   ├── java_parser.py
+│   │   │   ├── markdown_parser.py
+│   │   │   └── json_parser.py
 │   │   ├── models/            # Data models
 │   │   │   └── schemas.py     # Pydantic schemas
 │   │   └── utils/             # Utilities
 │   │       └── helpers.py
 │   ├── tests/                 # Test suite
-│   │   ├── test_parser.py
-│   │   └── test_comparator.py
 │   ├── requirements.txt       # Python dependencies
 │   └── .env.example          # Environment template
 │
 ├── frontend/                  # React Frontend
 │   ├── public/
 │   └── src/
-│       ├── components/
-│       ├── pages/
-│       └── App.jsx
 │
 ├── browser-extension/         # Chrome/Firefox Extension
-│   ├── manifest.json         # Extension configuration
-│   ├── popup/                # Extension popup UI
-│   │   ├── popup.html
-│   │   └── popup.js
-│   ├── content/              # Content scripts
-│   │   └── content.js
-│   ├── background/           # Background service worker
-│   │   └── background.js
-│   └── assets/               # Icons and images
+│   ├── manifest.json
+│   ├── popup/
+│   ├── content/
+│   └── background/
 │
 ├── github-action/            # GitHub Action
-│   ├── action.yml           # Action configuration
+│   ├── action.yml
 │   └── src/
-│       └── index.js         # Action implementation
 │
-├── docs/                    # Project documentation
-│   └── api-documentation.md
-│
+├── docs/
 ├── .gitignore
 └── README.md
 ```
 
 ---
 
-## 🛠️ Technology Stack
+## Technology Stack
 
 ### Backend
-- **FastAPI** - Web framework
-- **Pydantic** - Data validation
-- **Python AST** - Code parsing
-- **Uvicorn** - ASGI server
+- FastAPI - Web framework
+- Pydantic - Data validation
+- Python AST - Code parsing
+- Uvicorn - ASGI server
 
 ### Frontend
-- **React** - UI framework
-- **Vite** - Build tool
+- React
+- Vite
 
 ### Browser Extension
-- **Vanilla JavaScript**
-- **Chrome Extension API v3**
+- Vanilla JavaScript
+- Chrome Extension API v3
 
 ### Integrations
 - Token Company
@@ -93,21 +81,17 @@ nexhacks/
 
 ---
 
-## 🚀 Setup & Commands
+## Setup & Commands
 
 ### Backend
 
 ```bash
-# Navigate to project
 cd /Users/niloysaha/IdeaProjects/veritas/nexhacks
 
-# Install dependencies
 pip install -r backend/requirements.txt
 
-# Configure environment (optional)
 cp backend/.env.example backend/.env
 
-# Run server
 cd backend
 python -m uvicorn app.main:app --reload
 ```
@@ -145,13 +129,11 @@ pytest tests/ -v
 
 ---
 
-## 📡 API Examples
+## API Examples
 
 ```bash
-# Health check
 curl http://localhost:8000/api/v1/health
 
-# Analyze
 curl -X POST http://localhost:8000/api/v1/analyze \
   -H "Content-Type: application/json" \
   -d '{
