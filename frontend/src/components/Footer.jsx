@@ -37,7 +37,7 @@ export const Footer = () => {
           fontSize: '14px',
           flexWrap: 'wrap'
         }}>
-          {['How it Works', 'Features', 'Pricing', 'Docs', 'GitHub'].map((item) => (
+          {['How it Works', 'Features'].map((item) => (
             <a 
               key={item}
               href={`#${item.toLowerCase().replace(/\s/g, '-')}`}
@@ -52,6 +52,20 @@ export const Footer = () => {
               {item}
             </a>
           ))}
+          <a 
+            href="https://github.com/niloy-saha-123/veritas"
+            target="_blank"
+            rel="noopener noreferrer"
+            style={{
+              color: COLORS.muted,
+              textDecoration: 'none',
+              transition: 'color 0.2s ease'
+            }}
+            onMouseEnter={(e) => e.target.style.color = COLORS.ink}
+            onMouseLeave={(e) => e.target.style.color = COLORS.muted}
+          >
+            GitHub
+          </a>
         </nav>
 
         <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
@@ -79,7 +93,9 @@ export const Footer = () => {
             </svg>
           </a>
           <a 
-            href="#github" 
+            href="https://github.com/niloy-saha-123/veritas"
+            target="_blank"
+            rel="noopener noreferrer"
             aria-label="GitHub" 
             style={{ 
               color: COLORS.muted, 

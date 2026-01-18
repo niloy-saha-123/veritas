@@ -1,24 +1,100 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { COLORS } from '../constants/constants';
 
+const languages = {
+    Python: {
+      code: `def calculate_total(items: list, discount: float = 0.0):
+    """
+    Calculate total price with discount.
+    
+    Args:
+        items: List of item prices
+        discount: Discount percentage (0-1)
+    
+    Returns:
+        Total price after discount
+    """
+    subtotal = sum(items)
+    return subtotal * (1 - discount)`,
+      files: ['utils.py', 'calculator.py', 'pricing.py']
+    },
+    TypeScript: {
+      code: `interface User {
+  id: number;
+  email: string;
+  role: 'admin' | 'user';
+}
+
+function getUserById(id: number): User | null {
+  // Returns user or null if not found
+  return users.find(u => u.id === id) || null;
+}`,
+      files: ['types.ts', 'user.ts', 'api.ts']
+    },
+    Java: {
+      code: `public class PaymentProcessor {
+    /**
+     * Process payment for given amount.
+     * 
+     * @param amount Payment amount in cents
+     * @param currency Currency code (USD, EUR)
+     * @return Transaction ID or null if failed
+     */
+    public String processPayment(int amount, String currency) {
+        if (amount <= 0) return null;
+        return paymentGateway.charge(amount, currency);
+    }
+}`,
+      files: ['Payment.java', 'Processor.java', 'Main.java']
+    },
+    JSON: {
+      code: `{
+  "api": {
+    "version": "2.0",
+    "endpoints": [
+      {
+        "path": "/api/users",
+        "method": "GET",
+        "params": ["page", "limit"],
+        "returns": "User[]"
+      }
+    ]
+  }
+}`,
+      files: ['api.json', 'config.json', 'schema.json']
+    },
+    Markdown: {
+      code: `# API Documentation
+
+## getUserById(id)
+
+Fetches a user by their ID.
+
+**Parameters:**
+- \`id\` (number): User identifier
+
+**Returns:**
+- User object or null if not found`,
+      files: ['README.md', 'api.md', 'docs.md']
+    }
+};
+
 // Built for Modern Teams Section
 export const ModernTeamsSection = () => {
   const [selectedLanguage, setSelectedLanguage] = useState('Java');
   const [isVisible, setIsVisible] = useState(false);
+  const [trustScore, setTrustScore] = useState(0);
+  const [displayedCode, setDisplayedCode] = useState('');
+  const [isTyping, setIsTyping] = useState(false);
   const sectionRef = useRef(null);
-
-  const languages = {
-    Python: 'def authenticate(username, password):\n    return validate_user(username, password)',
-    TypeScript: 'function authenticate(username: string, password: string) {\n    return validateUser(username, password);\n}',
-    Java: 'public static void main(String[] args)',
-    Markdown: '# Authentication\n\nUse the `authenticate()` function to verify users.'
-  };
 
   useEffect(() => {
     const observer = new IntersectionObserver(
       ([entry]) => {
         if (entry.isIntersecting) {
           setIsVisible(true);
+          // Animate trust score from 0 to 92
+          animateTrustScore();
         }
       },
       { threshold: 0.2 }
@@ -30,6 +106,54 @@ export const ModernTeamsSection = () => {
 
     return () => observer.disconnect();
   }, []);
+
+  const animateTrustScore = () => {
+    const duration = 2000; // 2 seconds
+    const startTime = Date.now();
+    const startValue = 0;
+    const targetValue = 92;
+
+    const updateScore = () => {
+      const now = Date.now();
+      const elapsed = now - startTime;
+      const progress = Math.min(elapsed / duration, 1);
+      
+      // Easing function for smooth animation
+      const easeOutCubic = 1 - Math.pow(1 - progress, 3);
+      const currentValue = Math.floor(startValue + (targetValue - startValue) * easeOutCubic);
+      
+      setTrustScore(currentValue);
+
+      if (progress < 1) {
+        requestAnimationFrame(updateScore);
+      } else {
+        setTrustScore(targetValue);
+      }
+    };
+
+    requestAnimationFrame(updateScore);
+  };
+
+  useEffect(() => {
+    // Reset and type out code when language changes
+    setIsTyping(true);
+    setDisplayedCode('');
+    const code = languages[selectedLanguage].code;
+    let currentIndex = 0;
+
+    const typeCode = () => {
+      if (currentIndex < code.length) {
+        setDisplayedCode(code.substring(0, currentIndex + 1));
+        currentIndex++;
+        setTimeout(typeCode, 30); // Typing speed
+      } else {
+        setIsTyping(false);
+      }
+    };
+
+    const timer = setTimeout(typeCode, 100);
+    return () => clearTimeout(timer);
+  }, [selectedLanguage]);
 
   return (
     <section ref={sectionRef} style={{
@@ -54,9 +178,9 @@ export const ModernTeamsSection = () => {
 
         <div style={{
           display: 'grid',
-          gridTemplateColumns: '1.2fr 0.8fr',
+          gridTemplateColumns: '1.3fr 0.7fr',
           gap: '48px',
-          alignItems: 'start'
+          alignItems: 'stretch'
         }} className="modern-teams-grid">
           {/* Left: Multi-Language Support */}
           <div style={{
@@ -66,7 +190,9 @@ export const ModernTeamsSection = () => {
             padding: '40px',
             opacity: isVisible ? 1 : 0,
             transform: isVisible ? 'translateX(0)' : 'translateX(-30px)',
-            transition: 'all 0.6s ease-out'
+            transition: 'all 0.6s ease-out',
+            display: 'flex',
+            flexDirection: 'column'
           }}>
             <h3 style={{
               fontFamily: 'Space Grotesk, sans-serif',
@@ -123,7 +249,10 @@ export const ModernTeamsSection = () => {
               border: `1px solid ${COLORS.border}`,
               borderRadius: '8px',
               padding: '24px',
-              minHeight: '150px'
+              minHeight: '280px',
+              flex: 1,
+              display: 'flex',
+              flexDirection: 'column'
             }}>
               <div style={{
                 display: 'flex',
@@ -131,28 +260,55 @@ export const ModernTeamsSection = () => {
                 marginBottom: '16px',
                 fontSize: '13px',
                 fontFamily: 'JetBrains Mono, monospace',
-                color: COLORS.muted
+                color: COLORS.muted,
+                flexWrap: 'wrap'
               }}>
-                <span>config.py</span>
-                <span>types.ts</span>
-                <span style={{
-                  borderBottom: `2px solid ${COLORS.ink}`,
-                  color: COLORS.ink,
-                  paddingBottom: '4px'
-                }}>
-                  Main.java
-                </span>
+                {languages[selectedLanguage].files.map((file, index) => (
+                  <span
+                    key={file}
+                    style={{
+                      borderBottom: index === languages[selectedLanguage].files.length - 1 
+                        ? `2px solid ${COLORS.ink}` 
+                        : 'none',
+                      color: index === languages[selectedLanguage].files.length - 1 
+                        ? COLORS.ink 
+                        : COLORS.muted,
+                      paddingBottom: index === languages[selectedLanguage].files.length - 1 
+                        ? '4px' 
+                        : '0',
+                      cursor: 'pointer',
+                      transition: 'color 0.2s ease'
+                    }}
+                    onMouseEnter={(e) => {
+                      if (index !== languages[selectedLanguage].files.length - 1) {
+                        e.target.style.color = COLORS.ink;
+                      }
+                    }}
+                    onMouseLeave={(e) => {
+                      if (index !== languages[selectedLanguage].files.length - 1) {
+                        e.target.style.color = COLORS.muted;
+                      }
+                    }}
+                  >
+                    {file}
+                  </span>
+                ))}
               </div>
               <pre style={{
                 fontFamily: 'JetBrains Mono, monospace',
-                fontSize: '14px',
+                fontSize: '13px',
                 color: COLORS.ink,
                 margin: 0,
                 whiteSpace: 'pre-wrap',
                 opacity: 1,
-                animation: 'fadeInCode 0.3s ease-out'
+                lineHeight: '1.6',
+                flex: 1
               }}>
-                {languages[selectedLanguage]}
+                {displayedCode}
+                {isTyping && <span style={{ 
+                  animation: 'blink 1s infinite',
+                  marginLeft: '2px'
+                }}>|</span>}
               </pre>
             </div>
           </div>
@@ -197,11 +353,11 @@ export const ModernTeamsSection = () => {
                     stroke={COLORS.ink}
                     strokeWidth="8"
                     strokeDasharray="283"
-                    strokeDashoffset={isVisible ? 283 * (1 - 0.92) : 283}
+                    strokeDashoffset={isVisible ? 283 * (1 - trustScore / 100) : 283}
                     strokeLinecap="round"
                     transform="rotate(-90 50 50)"
                     style={{
-                      transition: 'stroke-dashoffset 1.5s ease-out 0.5s'
+                      transition: 'stroke-dashoffset 0.1s linear'
                     }}
                   />
                 </svg>
@@ -215,7 +371,7 @@ export const ModernTeamsSection = () => {
                   fontWeight: 700,
                   color: COLORS.ink
                 }}>
-                  92%
+                  {trustScore}%
                 </div>
               </div>
               <div style={{
@@ -330,6 +486,15 @@ export const ModernTeamsSection = () => {
           to {
             opacity: 1;
             transform: translateY(0);
+          }
+        }
+
+        @keyframes blink {
+          0%, 50% {
+            opacity: 1;
+          }
+          51%, 100% {
+            opacity: 0;
           }
         }
 

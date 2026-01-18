@@ -56,7 +56,7 @@ export const Header = () => {
           fontSize: '15px',
           fontFamily: 'IBM Plex Sans, sans-serif'
         }} className="desktop-nav">
-          {['Features', 'How it Works', 'Pricing', 'Docs'].map(item => (
+          {['Features', 'How it Works'].map(item => (
             <a 
               key={item}
               href={`#${item.toLowerCase().replace(/\s/g, '-')}`}
@@ -141,7 +141,7 @@ export const Header = () => {
           flexDirection: 'column',
           gap: '24px'
         }}>
-          {['Features', 'How it Works', 'Pricing', 'Docs'].map(item => (
+          {['Features', 'How it Works'].map(item => (
             <a 
               key={item}
               href={`#${item.toLowerCase().replace(/\s/g, '-')}`}
