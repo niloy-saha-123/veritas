@@ -3,7 +3,7 @@
 import json
 import re
 from typing import List, Dict, Any
-from app.models.schemas import FunctionSignature, Parameter
+from app.models.function_signature import FunctionSignature, Parameter
 
 
 def parse_json(code: str, filename: str = "") -> List[FunctionSignature]:
