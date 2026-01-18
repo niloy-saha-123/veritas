@@ -1,6 +1,7 @@
 from dataclasses import dataclass
 from typing import List, Optional, Dict, Any
 import json
+import time
 import requests
 
 from app.core.config import settings
@@ -55,43 +56,79 @@ class GeminiComparator:
         return result
 
     def _build_prompt(self, code_func: FunctionSignature, doc_func: FunctionSignature) -> str:
-        code_params = ", ".join([
-            f"{p.name}: {p.type or 'Any'}" + (f" = {p.default}" if p.default else "")
-            for p in code_func.parameters
-        ])
-        doc_params = ", ".join([p.name for p in doc_func.parameters])
+        # Build detailed parameter information
+        code_params_detail = []
+        for p in code_func.parameters:
+            param_str = p.name
+            if p.type:
+                param_str += f": {p.type}"
+            if p.default:
+                param_str += f" = {p.default}"
+            code_params_detail.append(f"  - {param_str}")
+        
+        doc_params_detail = []
+        for p in doc_func.parameters:
+            param_str = p.name
+            if p.type:
+                param_str += f" ({p.type})"
+            doc_params_detail.append(f"  - {param_str}")
 
         return f"""
-Compare this Python function's actual code signature with its documentation.
+Perform a SEMANTIC analysis comparing a Python function's code signature with its documentation. Focus on functional equivalence and meaning, not exact string matching.
+
+TASK: Determine if the code and documentation represent the SAME FUNCTION semantically, even if:
+- Parameter names are slightly different but mean the same thing
+- Documentation style differs (formal vs casual)
+- Minor documentation gaps exist (missing optional details)
+- Type hints vs documentation formats differ
 
 ACTUAL CODE:
-Function: {code_func.name}({code_params})
-Returns: {code_func.return_type or 'not specified'}
-Docstring: {code_func.docstring or 'none'}
-Line: {code_func.line_number}
+Function Name: {code_func.name}
+Parameters:
+{chr(10).join(code_params_detail) if code_params_detail else "  - (no parameters)"}
+Return Type: {code_func.return_type or 'not specified'}
+Docstring: {code_func.docstring[:500] if code_func.docstring else 'none'}
 
 DOCUMENTATION:
-Function: {doc_func.name}
-Parameters mentioned: {doc_params or 'none'}
-Return type: {doc_func.return_type or 'not specified'}
-Docstring: {doc_func.docstring or 'none'}
-Line: {doc_func.line_number}
+Function Name: {doc_func.name}
+Parameters:
+{chr(10).join(doc_params_detail) if doc_params_detail else "  - (no parameters mentioned)"}
+Return Type: {doc_func.return_type or 'not specified'}
+Docstring: {doc_func.docstring[:500] if doc_func.docstring else 'none'}
 
-Check for these issues:
-1. Missing parameters (in code but not in docs)
-2. Extra parameters (in docs but not in code)
-3. Wrong types documented
-4. Missing default values in docs
-5. Incorrect return type
+ANALYSIS INSTRUCTIONS:
+1. Are these the SAME function semantically? Consider:
+   - Function purpose and behavior
+   - Parameter semantics (does "price" match "cost"? does "discount" match "tax_rate"?)
+   - Required vs optional parameters
+   - Return value meaning
+
+2. Only report CRITICAL mismatches that would cause user confusion or errors:
+   - Missing REQUIRED parameters (users would get runtime errors)
+   - Completely wrong parameter types that would cause errors
+   - Missing critical functionality described in docs
+   - Return type mismatches that break expectations
+
+3. IGNORE minor issues:
+   - Missing type hints in documentation (if code has them)
+   - Documentation style differences
+   - Missing examples or code samples
+   - Minor naming variations with same meaning
+   - Optional documentation details
+
+4. Set confidence 80-100% if functions are semantically equivalent (even with minor doc gaps)
+5. Set confidence 50-79% if mostly similar but has some notable differences
+6. Set confidence 0-49% only if functions are fundamentally different
 
 Respond with JSON only:
 {{
   "matches": true/false,
   "confidence": 0-100,
+  "semantic_analysis": "Brief explanation of semantic equivalence",
   "issues": [
     {{
       "severity": "high/medium/low",
-      "issue": "description of the problem",
+      "issue": "description of CRITICAL problem only",
       "code_has": "what the code shows",
       "docs_say": "what docs claim",
       "suggested_fix": "how to fix it"
@@ -100,7 +137,21 @@ Respond with JSON only:
 }}
 """.strip()
 
-    def _call_gemini(self, prompt: str) -> str:
+    def _call_gemini(self, prompt: str, max_retries: int = 3) -> str:
+        """
+        Call Gemini API with retry logic for rate limits.
+        
+        Args:
+            prompt: Prompt text to send
+            max_retries: Maximum number of retry attempts (default: 3)
+        
+        Returns:
+            Response text from Gemini API
+        
+        Raises:
+            RuntimeError: If API key is missing
+            requests.exceptions.HTTPError: If API call fails after all retries
+        """
         if not self.api_key:
             raise RuntimeError("GEMINI_API_KEY is missing")
 
@@ -108,10 +159,46 @@ Respond with JSON only:
         headers = {"Content-Type": "application/json"}
         data = {"contents": [{"parts": [{"text": prompt}]}]}
 
-        resp = requests.post(url, json=data, headers=headers)
-        resp.raise_for_status()
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+        # Retry logic with exponential backoff for rate limits
+        for attempt in range(max_retries):
+            try:
+                resp = requests.post(url, json=data, headers=headers, timeout=60)
+                resp.raise_for_status()
+                result = resp.json()
+                return result["candidates"][0]["content"]["parts"][0]["text"]
+            
+            except requests.exceptions.HTTPError as e:
+                # Check if it's a rate limit error (429)
+                if e.response.status_code == 429:
+                    if attempt < max_retries - 1:
+                        # Exponential backoff: wait 2^attempt seconds (1s, 2s, 4s, etc.)
+                        wait_time = 2 ** attempt
+                        print(f"⚠️  Rate limited (429). Retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                        time.sleep(wait_time)
+                        continue
+                    else:
+                        # Last attempt failed
+                        print(f"❌ Rate limit exceeded after {max_retries} attempts")
+                        raise requests.exceptions.HTTPError(
+                            f"Rate limit exceeded. Please wait before retrying. "
+                            f"Last error: {e.response.status_code} - {e.response.text}"
+                        ) from e
+                else:
+                    # Non-rate-limit error - don't retry
+                    raise
+            
+            except Exception as e:
+                # Other errors (network, timeout, etc.) - retry with backoff
+                if attempt < max_retries - 1:
+                    wait_time = 2 ** attempt
+                    print(f"⚠️  API call failed: {e}. Retrying in {wait_time}s... (attempt {attempt + 1}/{max_retries})")
+                    time.sleep(wait_time)
+                    continue
+                else:
+                    raise
+        
+        # Should not reach here, but just in case
+        raise RuntimeError(f"Failed to call Gemini API after {max_retries} attempts")
 
     def _parse_response(self, text: str, func_name: str) -> ComparisonResult:
         start = text.find("{")
