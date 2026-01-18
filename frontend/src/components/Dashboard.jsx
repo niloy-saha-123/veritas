@@ -9,6 +9,7 @@ import Pricing from './Pricing'
 import Footer from './Footer'
 import SignIn from './SignIn'
 import UserDashboard from './UserDashboard'
+import PRAnalysis from './PRAnalysis'
 import './Dashboard.css'
 
 function Dashboard() {

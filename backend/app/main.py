@@ -3,7 +3,7 @@
 from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 from app.core.config import settings
-from app.api.routes import health, analysis, auth, dashboard
+from app.api.routes import health, analysis, auth, dashboard, pr_analysis
 from app.database import Base, engine
 
 # Initialize database tables
@@ -32,6 +32,7 @@ app.include_router(health.router, prefix="/api/v1", tags=["Health"])
 app.include_router(analysis.router, prefix="/api/v1", tags=["Analysis"])
 app.include_router(auth.router, prefix="/api/v1", tags=["Authentication"])
 app.include_router(dashboard.router, prefix="/api/v1", tags=["Dashboard"])
+app.include_router(pr_analysis.router, prefix="/api/v1", tags=["PR Analysis"])
 
 
 @app.get("/")
