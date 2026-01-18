@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import Results from './Results'
+import PRAnalysis from './PRAnalysis'
 import './UserDashboard.css'
 
 function UserDashboard({ userId, onAnalyze, onSignOut }) {
@@ -13,6 +14,7 @@ function UserDashboard({ userId, onAnalyze, onSignOut }) {
   const [addingRepo, setAddingRepo] = useState(false)
   const [selectedHistory, setSelectedHistory] = useState(null)
   const [deletingRepoId, setDeletingRepoId] = useState(null)
+  const [showPRAnalysis, setShowPRAnalysis] = useState(false)
 
   useEffect(() => {
     if (userId) {
@@ -144,6 +146,37 @@ function UserDashboard({ userId, onAnalyze, onSignOut }) {
     })
   }
 
+  // If PR Analysis is selected, show PR analysis component (can show even while loading)
+  if (showPRAnalysis) {
+    return (
+      <div className="user-dashboard" style={{ minHeight: '100vh', background: '#f9f9f9' }}>
+        <div className="dashboard-header">
+          <div className="profile-section">
+            {dashboardData?.avatar_url && (
+              <img src={dashboardData.avatar_url} alt={dashboardData?.username || 'User'} className="profile-avatar" />
+            )}
+            <div className="profile-info">
+              <h1>{dashboardData?.username || 'User'}</h1>
+              {dashboardData?.email && <p className="profile-email">{dashboardData.email}</p>}
+            </div>
+          </div>
+          <div style={{ display: 'flex', gap: '1rem', alignItems: 'center' }}>
+            <button onClick={() => setShowPRAnalysis(false)} className="btn btn-secondary">
+              ← Back to Dashboard
+            </button>
+            {onSignOut && (
+              <button onClick={onSignOut} className="btn btn-secondary">Sign Out</button>
+            )}
+          </div>
+        </div>
+        <PRAnalysis 
+          userId={userId} 
+          onBack={() => setShowPRAnalysis(false)}
+        />
+      </div>
+    )
+  }
+
   if (loading) {
     return (
       <div className="user-dashboard">
@@ -222,6 +255,22 @@ function UserDashboard({ userId, onAnalyze, onSignOut }) {
       </div>
 
       <div className="dashboard-content">
+        {/* Premium Features */}
+        <section className="dashboard-section">
+          <h2>Premium Features</h2>
+          <div className="premium-features-grid">
+            <div 
+              className="premium-feature-card"
+              onClick={() => setShowPRAnalysis(true)}
+            >
+              <div className="premium-feature-icon">👑</div>
+              <h3>PR Analysis</h3>
+              <p>Analyze Pull Requests for documentation issues</p>
+              <div className="premium-badge">Premium</div>
+            </div>
+          </div>
+        </section>
+
         {/* Connected Repositories */}
         <section className="dashboard-section">
           <h2>Connected Repositories</h2>
