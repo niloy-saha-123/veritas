@@ -6,6 +6,8 @@ google-generativeai==0.3.2
 gitpython==3.1.40
 requests==2.31.0
 python-multipart==0.0.6
+PyJWT==2.8.0
+cryptography==41.0.7
 sentence-transformers>=2.2.0
 numpy>=1.24.0
 tokenc>=0.1.0
