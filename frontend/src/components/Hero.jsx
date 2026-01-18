@@ -69,23 +69,25 @@ export const Hero = () => {
             transition: 'all 0.4s ease-out 0.1s',
             marginBottom: '32px'
           }}>
-            <button style={{
-              backgroundColor: COLORS.ink,
-              color: COLORS.canvas,
-              border: 'none',
-              borderRadius: '8px',
-              padding: '16px 32px',
-              fontSize: '16px',
-              fontFamily: 'IBM Plex Sans, sans-serif',
-              fontWeight: 500,
-              cursor: 'pointer',
-              transition: 'transform 0.1s ease'
-            }}
-            onMouseDown={(e) => e.target.style.transform = 'scale(0.98)'}
-            onMouseUp={(e) => e.target.style.transform = 'scale(1)'}
-            onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
+            <button
+              onClick={() => window.location.href = 'https://github.com/apps/veritas-docs-verifier'}
+              style={{
+                backgroundColor: COLORS.ink,
+                color: COLORS.canvas,
+                border: 'none',
+                borderRadius: '8px',
+                padding: '16px 32px',
+                fontSize: '16px',
+                fontFamily: 'IBM Plex Sans, sans-serif',
+                fontWeight: 500,
+                cursor: 'pointer',
+                transition: 'transform 0.1s ease'
+              }}
+              onMouseDown={(e) => e.target.style.transform = 'scale(0.98)'}
+              onMouseUp={(e) => e.target.style.transform = 'scale(1)'}
+              onMouseLeave={(e) => e.target.style.transform = 'scale(1)'}
             >
-              Install GitHub App
+              App Link
             </button>
           </div>
 
