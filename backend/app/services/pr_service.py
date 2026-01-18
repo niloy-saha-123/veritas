@@ -1,8 +1,8 @@
 """
-PR Creation Service
+Issue Creation Service
 
-Automatically creates GitHub Pull Requests with documentation fixes
-based on analysis discrepancies.
+Automatically creates GitHub Issues with documentation discrepancies
+based on analysis results.
 """
 
 import re
@@ -17,20 +17,18 @@ try:
     GITHUB_AVAILABLE = True
 except ImportError:
     GITHUB_AVAILABLE = False
-    print("Warning: PyGithub not installed. PR creation will not work.")
+    print("Warning: PyGithub not installed. Issue creation will not work.")
 
 from app.core.config import settings
 from app.models.schemas import DiscrepancyReport
 
 
 @dataclass
-class PRResult:
-    """Result of PR creation."""
+class IssueResult:
+    """Result of Issue creation."""
     success: bool
-    pr_url: Optional[str] = None
-    branch_name: Optional[str] = None
+    issue_url: Optional[str] = None
     error: Optional[str] = None
-    files_changed: int = 0
 
 
 class DocumentationGenerator:
@@ -160,12 +158,12 @@ class DocumentationGenerator:
         return None
 
 
-class PRService:
-    """Service for creating GitHub Pull Requests with documentation fixes."""
+class IssueService:
+    """Service for creating GitHub Issues with documentation discrepancies."""
     
     def __init__(self, github_token: Optional[str] = None):
         """
-        Initialize PR service.
+        Initialize Issue service.
         
         Args:
             github_token: GitHub Personal Access Token (or use from settings)
@@ -180,34 +178,32 @@ class PRService:
         self.github = Github(self.token)
         self.doc_generator = DocumentationGenerator()
     
-    def create_pr_for_discrepancies(
+    def create_issue_for_discrepancies(
         self,
         repo_url: str,
-        branch: str,
         discrepancies: List[DiscrepancyReport],
         metadata: Dict,
-        pr_title: Optional[str] = None,
-        pr_body: Optional[str] = None
-    ) -> PRResult:
+        issue_title: Optional[str] = None,
+        issue_body: Optional[str] = None
+    ) -> IssueResult:
         """
-        Create a GitHub PR with documentation fixes.
+        Create a GitHub Issue with documentation discrepancies.
         
         Args:
             repo_url: GitHub repository URL (e.g., https://github.com/user/repo)
-            branch: Base branch name (e.g., 'main')
-            discrepancies: List of discrepancies to fix
+            discrepancies: List of discrepancies found
             metadata: Analysis metadata (trust_score, etc.)
-            pr_title: Custom PR title (optional)
-            pr_body: Custom PR body (optional)
+            issue_title: Custom Issue title (optional)
+            issue_body: Custom Issue body (optional)
             
         Returns:
-            PRResult with PR URL and status
+            IssueResult with Issue URL and status
         """
         try:
             # Parse repository info
             repo_info = self._parse_repo_url(repo_url)
             if not repo_info:
-                return PRResult(
+                return IssueResult(
                     success=False,
                     error=f"Invalid repository URL: {repo_url}"
                 )
@@ -219,7 +215,7 @@ class PRService:
                 github_repo = self.github.get_repo(f"{owner}/{repo_name}")
             except GithubException as e:
                 if e.status == 404 or "Resource not accessible" in str(e):
-                    return PRResult(
+                    return IssueResult(
                         success=False,
                         error=f"❌ Cannot access repository '{owner}/{repo_name}'\n\n"
                               f"🔐 Required Token Permissions:\n"
@@ -237,61 +233,18 @@ class PRService:
                     )
                 raise
             
-            # Generate branch name
-            branch_name = f"veritas/docs-fix-{datetime.now().strftime('%Y%m%d-%H%M%S')}"
+            # Create Issue
+            issue_title = issue_title or self._generate_issue_title(metadata, len(discrepancies))
+            issue_body = issue_body or self._generate_issue_body(discrepancies, metadata)
             
-            # Create branch from base branch
-            try:
-                base_ref = github_repo.get_git_ref(f"heads/{branch}")
-                github_repo.create_git_ref(
-                    ref=f"refs/heads/{branch_name}",
-                    sha=base_ref.object.sha
-                )
-            except GithubException as e:
-                # Branch might already exist, try with different suffix
-                if e.status == 422:  # Unprocessable Entity
-                    branch_name = f"{branch_name}-{hash(repr(discrepancies))[:8]}"
-                    base_ref = github_repo.get_git_ref(f"heads/{branch}")
-                    github_repo.create_git_ref(
-                        ref=f"refs/heads/{branch_name}",
-                        sha=base_ref.object.sha
-                    )
-                else:
-                    raise
-            
-            # Generate documentation files
-            files_to_create = self._generate_doc_files(discrepancies, github_repo, branch_name)
-            
-            if not files_to_create:
-                # Delete branch if no files to create
-                try:
-                    github_repo.get_git_ref(f"heads/{branch_name}").delete()
-                except:
-                    pass
-                return PRResult(
-                    success=False,
-                    error="No documentation files could be generated from discrepancies"
-                )
-            
-            # Commit files to the new branch
-            self._commit_files(github_repo, branch_name, files_to_create)
-            
-            # Create PR
-            pr_title = pr_title or self._generate_pr_title(metadata, len(discrepancies))
-            pr_body = pr_body or self._generate_pr_body(discrepancies, metadata)
-            
-            pr = github_repo.create_pull(
-                title=pr_title,
-                body=pr_body,
-                head=branch_name,
-                base=branch
+            issue = github_repo.create_issue(
+                title=issue_title,
+                body=issue_body
             )
             
-            return PRResult(
+            return IssueResult(
                 success=True,
-                pr_url=pr.html_url,
-                branch_name=branch_name,
-                files_changed=len(files_to_create)
+                issue_url=issue.html_url
             )
             
         except GithubException as e:
@@ -300,7 +253,7 @@ class PRService:
             # Provide more helpful error messages
             if e.status == 404:
                 if "not found" in error_msg.lower() or "Resource not accessible" in error_msg:
-                    return PRResult(
+                    return IssueResult(
                         success=False,
                         error=f"Repository not accessible. Possible reasons:\n"
                               f"1. Token doesn't have 'repo' scope (needed for private repos)\n"
@@ -309,32 +262,32 @@ class PRService:
                               f"Error: {error_msg}"
                     )
                 else:
-                    return PRResult(
+                    return IssueResult(
                         success=False,
-                        error=f"Repository or branch not found: {error_msg}"
+                        error=f"Repository not found: {error_msg}"
                     )
             elif e.status == 403:
-                return PRResult(
+                return IssueResult(
                     success=False,
                     error=f"Permission denied. Token may lack required scopes:\n"
                           f"Required: 'repo' scope (full control of private repositories)\n"
                           f"Error: {error_msg}"
                 )
             elif e.status == 401:
-                return PRResult(
+                return IssueResult(
                     success=False,
                     error=f"Authentication failed. Please check your GitHub token.\n"
                           f"Error: {error_msg}"
                 )
             else:
-                return PRResult(
+                return IssueResult(
                     success=False,
                     error=f"GitHub API error ({e.status}): {error_msg}"
                 )
         except Exception as e:
-            return PRResult(
+            return IssueResult(
                 success=False,
-                error=f"Failed to create PR: {str(e)}"
+                error=f"Failed to create Issue: {str(e)}"
             )
     
     def _parse_repo_url(self, repo_url: str) -> Optional[Tuple[str, str]]:
@@ -445,22 +398,22 @@ class PRService:
                 print(f"Warning: Failed to create/update {path}: {e}")
                 continue
     
-    def _generate_pr_title(self, metadata: Dict, discrepancy_count: int) -> str:
-        """Generate PR title from metadata."""
+    def _generate_issue_title(self, metadata: Dict, discrepancy_count: int) -> str:
+        """Generate Issue title from metadata."""
         trust_score = metadata.get('trust_score', 0)
-        return f"📚 Documentation Fixes (Trust Score: {trust_score}%)"
+        return f"📚 Documentation Discrepancies Found - {discrepancy_count} issue{'s' if discrepancy_count != 1 else ''} (Trust Score: {trust_score}%)"
     
-    def _generate_pr_body(
+    def _generate_issue_body(
         self,
         discrepancies: List[DiscrepancyReport],
         metadata: Dict
     ) -> str:
-        """Generate PR body with summary and details."""
+        """Generate Issue body with summary and details."""
         lines = []
         
         # Header
-        lines.append("## 📋 Documentation Fixes by Veritas.dev\n")
-        lines.append("This PR contains automated documentation fixes based on code-documentation analysis.\n")
+        lines.append("## 📋 Documentation Discrepancies by Veritas.dev\n")
+        lines.append("This issue was automatically created based on code-documentation analysis.\n")
         
         # Summary
         trust_score = metadata.get('trust_score', 0)
@@ -488,7 +441,7 @@ class PRService:
             lines.append("")
         
         # Discrepancies list
-        lines.append("### 📝 Fixed Discrepancies\n")
+        lines.append("### 📝 Documentation Discrepancies\n")
         for i, disc in enumerate(discrepancies[:20], 1):  # Limit to first 20
             lines.append(f"{i}. **{disc.type.value}** ({disc.severity})")
             lines.append(f"   - {disc.description}")
@@ -501,6 +454,6 @@ class PRService:
         
         # Footer
         lines.append("---\n")
-        lines.append("*This PR was automatically created by [Veritas.dev](https://veritas.dev) - Automated Documentation Verification*")
+        lines.append("*This issue was automatically created by [Veritas.dev](https://veritas.dev) - Automated Documentation Verification*")
         
         return "\n".join(lines)

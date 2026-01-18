@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import './Results.css'
 
-function Results({ results, repoUrl, onReset }) {
+function Results({ results, repoUrl, onReset, userId }) {
   const metadata = results.metadata || {}
   const discrepancies = results.discrepancies || []
   const trustScore = metadata.trust_score || 0
@@ -24,27 +24,27 @@ function Results({ results, repoUrl, onReset }) {
     return 'Poor'
   }
 
-  const handleCreatePR = async () => {
+  const handleCreateIssue = async () => {
     setCreatingPR(true)
     setPrResult(null)
     
     try {
-      const response = await fetch('http://localhost:8000/api/v1/analyze/github/create-pr', {
+      const response = await fetch('http://localhost:8000/api/v1/analyze/github/create-issue', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify({
           repo_url: repoUrl,
-          branch: metadata.branch || 'main',
           discrepancies: discrepancies,
-          metadata: metadata
+          metadata: metadata,
+          user_id: userId || null
         })
       })
 
       if (!response.ok) {
         const errorData = await response.json().catch(() => ({ detail: response.statusText }))
-        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to create PR`)
+        throw new Error(errorData.detail || `HTTP ${response.status}: Failed to create Issue`)
       }
 
       const data = await response.json()
@@ -52,9 +52,9 @@ function Results({ results, repoUrl, onReset }) {
     } catch (err) {
       setPrResult({ 
         success: false, 
-        error: err.message || 'Failed to create PR' 
+        error: err.message || 'Failed to create Issue' 
       })
-      console.error('PR creation error:', err)
+      console.error('Issue creation error:', err)
     } finally {
       setCreatingPR(false)
     }
@@ -161,27 +161,27 @@ function Results({ results, repoUrl, onReset }) {
           </div>
         )}
 
-        {/* PR Creation Section */}
+        {/* Issue Creation Section */}
         {discrepancies.length > 0 && (
           <div className="pr-section">
             <div className="pr-card">
-              <h3>🚀 Create Pull Request</h3>
+              <h3>🚀 Create Issue</h3>
               <p className="pr-description">
-                Automatically create a PR with documentation fixes for the {discrepancies.length} issue{discrepancies.length !== 1 ? 's' : ''} found.
+                Automatically create an issue with documentation discrepancies for the {discrepancies.length} issue{discrepancies.length !== 1 ? 's' : ''} found.
               </p>
               
               <button 
-                onClick={handleCreatePR} 
+                onClick={handleCreateIssue} 
                 className="btn btn-primary btn-large"
                 disabled={creatingPR}
               >
                 {creatingPR ? (
                   <>
                     <span className="spinner-small"></span>
-                    Creating PR...
+                    Creating Issue...
                   </>
                 ) : (
-                  '🚀 Create PR with Fixes'
+                  '🚀 Create Issue'
                 )}
               </button>
               
@@ -190,39 +190,29 @@ function Results({ results, repoUrl, onReset }) {
                   <div className="pr-success">
                     <div className="pr-success-header">
                       <span className="pr-success-icon">✅</span>
-                      <h4>PR Created Successfully!</h4>
+                      <h4>Issue Created Successfully!</h4>
                     </div>
                     <div className="pr-success-content">
-                      <p className="pr-url-label">Pull Request URL:</p>
+                      <p className="pr-url-label">Issue URL:</p>
                       <a 
-                        href={prResult.pr_url} 
+                        href={prResult.issue_url} 
                         target="_blank" 
                         rel="noopener noreferrer"
                         className="pr-url-link"
                       >
-                        {prResult.pr_url}
+                        {prResult.issue_url}
                       </a>
-                      {prResult.branch_name && (
-                        <p className="pr-branch-info">
-                          Branch: <code>{prResult.branch_name}</code>
-                        </p>
-                      )}
-                      {prResult.files_changed > 0 && (
-                        <p className="pr-files-info">
-                          {prResult.files_changed} file{prResult.files_changed !== 1 ? 's' : ''} changed
-                        </p>
-                      )}
                     </div>
                   </div>
                 ) : (
                   <div className="pr-error">
                     <div className="pr-error-header">
                       <span className="pr-error-icon">❌</span>
-                      <h4>Failed to Create PR</h4>
+                      <h4>Failed to Create Issue</h4>
                     </div>
-                    <p className="pr-error-message">{prResult.error || 'An error occurred while creating the PR'}</p>
+                    <p className="pr-error-message">{prResult.error || 'An error occurred while creating the Issue'}</p>
                     <button 
-                      onClick={handleCreatePR} 
+                      onClick={handleCreateIssue} 
                       className="btn btn-secondary btn-small"
                       style={{ marginTop: '1rem' }}
                     >

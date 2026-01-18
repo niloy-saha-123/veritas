@@ -93,21 +93,19 @@ class FunctionSignature(BaseModel):
         return f"{prefix}def {self.name}({params_str}){ret}"
 
 
-class CreatePRRequest(BaseModel):
-    """Request model for creating a PR with documentation fixes."""
+class CreateIssueRequest(BaseModel):
+    """Request model for creating an Issue with documentation discrepancies."""
     repo_url: str = Field(..., description="GitHub repository URL")
-    branch: str = Field("main", description="Base branch name")
-    discrepancies: List[DiscrepancyReport] = Field(..., description="List of discrepancies to fix")
+    discrepancies: List[DiscrepancyReport] = Field(..., description="List of discrepancies found")
     metadata: Dict[str, Any] = Field(..., description="Analysis metadata")
-    pr_title: Optional[str] = Field(None, description="Custom PR title")
-    pr_body: Optional[str] = Field(None, description="Custom PR body")
+    issue_title: Optional[str] = Field(None, description="Custom Issue title")
+    issue_body: Optional[str] = Field(None, description="Custom Issue body")
+    user_id: Optional[int] = Field(None, description="User ID for retrieving stored token")
 
 
-class CreatePRResponse(BaseModel):
-    """Response model for PR creation."""
+class CreateIssueResponse(BaseModel):
+    """Response model for Issue creation."""
     success: bool
-    pr_url: Optional[str] = None
-    branch_name: Optional[str] = None
-    files_changed: int = 0
+    issue_url: Optional[str] = None
     error: Optional[str] = None
 

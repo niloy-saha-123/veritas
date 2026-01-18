@@ -1,6 +1,7 @@
 .results-container {
-  max-width: 1000px;
+  max-width: 1400px;
   margin: 0 auto;
+  padding: 4rem 4rem 6rem;
 }
 
 .results-header {
@@ -41,7 +42,7 @@
 
 .score-display {
   display: flex;
-  align-items: center;
+  align-items: flex-start;
   gap: 2rem;
   margin-bottom: 2rem;
   padding-bottom: 2rem;
@@ -57,19 +58,33 @@
   align-items: center;
   justify-content: center;
   flex-shrink: 0;
+  position: relative;
 }
 
 .score-value {
   font-size: 2.5rem;
   font-weight: 700;
   letter-spacing: -1px;
+  text-align: center;
+  line-height: 1;
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+}
+
+.score-info {
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  min-height: 120px;
 }
 
 .score-info h3 {
   font-size: 1.25rem;
   font-weight: 600;
   color: #1a1a1a;
-  margin-bottom: 0.25rem;
+  margin: 0 0 0.5rem 0;
 }
 
 .score-label {

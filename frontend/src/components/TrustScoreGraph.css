@@ -1,0 +1,54 @@
+.trust-score-graph {
+  background: #faf9f7;
+  padding: 6rem 4rem;
+  width: 100%;
+}
+
+.graph-container {
+  max-width: 800px;
+  margin: 0 auto;
+}
+
+.graph-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.graph-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 2rem 0;
+  letter-spacing: -0.3px;
+}
+
+.graph-content {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.trust-score-chart {
+  width: 100%;
+  max-width: 500px;
+  height: 250px;
+}
+
+/* Responsive */
+@media (max-width: 768px) {
+  .trust-score-graph {
+    padding: 4rem 2rem;
+  }
+
+  .graph-title {
+    font-size: 1.25rem;
+  }
+
+  .trust-score-chart {
+    height: 200px;
+  }
+}

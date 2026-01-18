@@ -1,15 +1,18 @@
 # Analysis API endpoints - POST /analyze for code-doc verification
 
-from fastapi import APIRouter, HTTPException, UploadFile, File
+from fastapi import APIRouter, HTTPException, UploadFile, File, Depends
 from typing import Optional, List
 from pydantic import BaseModel, Field
 from app.models.schemas import (
     AnalysisRequest, AnalysisResponse, DiscrepancyReport, DiscrepancyType,
-    CreatePRRequest, CreatePRResponse
+    CreateIssueRequest, CreateIssueResponse
 )
 from app.parsers.parser_factory import parse_code, get_all_functions
 from app.comparison.scorer import analyze_repository
-from app.services.pr_service import PRService, PRResult
+from app.services.pr_service import IssueService, IssueResult
+from app.services.auth_service import AuthService
+from app.database import get_db
+from sqlalchemy.orm import Session
 
 router = APIRouter()
 
@@ -19,6 +22,7 @@ class GitHubAnalysisRequest(BaseModel):
     repo_url: str = Field(..., description="GitHub repository URL (e.g., https://github.com/user/repo)")
     branch: str = Field("main", description="Git branch to analyze (default: main)")
     use_token_company: bool = Field(True, description="Use Token Company for context compression")
+    user_id: Optional[int] = Field(None, description="User ID for saving analysis history")
 
 
 def _summarize(trust_score: int, issue_count: int) -> str:
@@ -391,6 +395,31 @@ async def analyze_github_repo(request: GitHubAnalysisRequest):
         
         discrepancies = _issues_to_discrepancies(result["issues"])
         
+        # Convert Pydantic models to dictionaries for JSON serialization
+        # Handle both Pydantic v1 (.dict()) and v2 (.model_dump())
+        discrepancies_dict = []
+        for disc in discrepancies:
+            if hasattr(disc, 'model_dump'):
+                # Pydantic v2
+                discrepancies_dict.append(disc.model_dump())
+            elif hasattr(disc, 'dict'):
+                # Pydantic v1
+                discrepancies_dict.append(disc.dict())
+            elif isinstance(disc, dict):
+                # Already a dict
+                discrepancies_dict.append(disc)
+            else:
+                # Fallback: convert to dict manually
+                discrepancies_dict.append({
+                    "type": str(disc.type) if hasattr(disc, 'type') else "function_signature",
+                    "severity": disc.severity if hasattr(disc, 'severity') else "medium",
+                    "location": disc.location if hasattr(disc, 'location') else "unknown",
+                    "description": disc.description if hasattr(disc, 'description') else "",
+                    "code_snippet": disc.code_snippet if hasattr(disc, 'code_snippet') else None,
+                    "doc_snippet": disc.doc_snippet if hasattr(disc, 'doc_snippet') else None,
+                    "suggestion": disc.suggestion if hasattr(disc, 'suggestion') else None,
+                })
+        
         # Build comprehensive metadata
         file_categories = repo_data.get('file_categories', {})
         code_file_list = list(code_files.keys())
@@ -414,10 +443,43 @@ async def analyze_github_repo(request: GitHubAnalysisRequest):
             "file_categories": {
                 "code": len(file_categories.get("code", [])),
                 "doc": len(file_categories.get("doc", []))
-            }
+            },
+            "discrepancies": discrepancies_dict  # Include full discrepancies as dicts for history viewing
         }
         
         print(f"✅ Analysis complete! Trust score: {result['trust_score']}%, Issues: {len(discrepancies)}")
+        
+        # Save analysis history if user_id is provided (save after response to not delay)
+        # Note: This is done after cleanup to avoid blocking the response
+        if hasattr(request, 'user_id') and request.user_id:
+            try:
+                import threading
+                def save_history_async():
+                    try:
+                        from app.models.database_models import AnalysisHistory
+                        from app.database import SessionLocal
+                        import json
+                        db = SessionLocal()
+                        try:
+                            history = AnalysisHistory(
+                                user_id=request.user_id,
+                                repo_url=request.repo_url,
+                                trust_score=result["trust_score"],
+                                total_functions=result["total_functions"],
+                                verified_count=result["verified"],
+                                discrepancies_count=len(discrepancies),
+                                analysis_data=json.dumps(metadata)
+                            )
+                            db.add(history)
+                            db.commit()
+                            print(f"📝 Analysis history saved for user {request.user_id}")
+                        finally:
+                            db.close()
+                    except Exception as e:
+                        print(f"⚠️  Failed to save analysis history: {e}")
+                threading.Thread(target=save_history_async, daemon=True).start()
+            except Exception as e:
+                print(f"⚠️  Failed to start history save thread: {e}")
         
         # Cleanup temp directory
         agent.cleanup()
@@ -449,44 +511,51 @@ async def analyze_github_repo(request: GitHubAnalysisRequest):
         raise HTTPException(status_code=500, detail=f"Repository analysis failed: {str(e)}")
 
 
-@router.post("/analyze/github/create-pr", response_model=CreatePRResponse)
-async def create_pr_for_discrepancies(request: CreatePRRequest):
+@router.post("/analyze/github/create-issue", response_model=CreateIssueResponse)
+async def create_issue_for_discrepancies(
+    request: CreateIssueRequest,
+    db: Session = Depends(get_db)
+):
     """
-    Create a GitHub Pull Request with documentation fixes based on discrepancies.
+    Create a GitHub Issue with documentation discrepancies.
     
     Args:
-        request: PR creation request with repository URL, discrepancies, and metadata
+        request: Issue creation request with repository URL, discrepancies, and metadata
+        db: Database session
         
     Returns:
-        CreatePRResponse with PR URL and status
+        CreateIssueResponse with Issue URL and status
     """
     try:
-        # Initialize PR service
-        pr_service = PRService()
+        # Get token from database if user_id is provided, otherwise use fallback
+        github_token = None
+        if request.user_id:
+            auth_service = AuthService(db)
+            github_token = auth_service.get_user_token(request.user_id, request.repo_url)
         
-        # Create PR
-        result = pr_service.create_pr_for_discrepancies(
+        # Initialize Issue service with token
+        issue_service = IssueService(github_token=github_token)
+        
+        # Create Issue
+        result = issue_service.create_issue_for_discrepancies(
             repo_url=request.repo_url,
-            branch=request.branch,
             discrepancies=request.discrepancies,
             metadata=request.metadata,
-            pr_title=request.pr_title,
-            pr_body=request.pr_body
+            issue_title=request.issue_title,
+            issue_body=request.issue_body
         )
         
         if result.success:
-            print(f"✅ PR created successfully: {result.pr_url}")
-            return CreatePRResponse(
+            print(f"✅ Issue created successfully: {result.issue_url}")
+            return CreateIssueResponse(
                 success=True,
-                pr_url=result.pr_url,
-                branch_name=result.branch_name,
-                files_changed=result.files_changed
+                issue_url=result.issue_url
             )
         else:
-            print(f"❌ Failed to create PR: {result.error}")
+            print(f"❌ Failed to create Issue: {result.error}")
             raise HTTPException(
                 status_code=400,
-                detail=result.error or "Failed to create PR"
+                detail=result.error or "Failed to create Issue"
             )
             
     except ValueError as e:
@@ -503,7 +572,7 @@ async def create_pr_for_discrepancies(request: CreatePRRequest):
     except HTTPException:
         raise
     except Exception as e:
-        print(f"❌ Error creating PR: {e}")
+        print(f"❌ Error creating Issue: {e}")
         import traceback
         traceback.print_exc()
-        raise HTTPException(status_code=500, detail=f"PR creation failed: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"Issue creation failed: {str(e)}")

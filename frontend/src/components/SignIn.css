@@ -1,0 +1,165 @@
+.btn-sign-in {
+  background: #1a1a1a;
+  color: #ffffff;
+  border: none;
+  padding: 0.625rem 1.25rem;
+  border-radius: 6px;
+  font-size: 0.95rem;
+  font-weight: 500;
+  cursor: pointer;
+  transition: background 0.2s;
+  font-family: inherit;
+  display: flex;
+  align-items: center;
+  position: relative;
+  z-index: 1;
+}
+
+.btn-sign-in:hover {
+  background: #333;
+}
+
+.btn-sign-in:active {
+  background: #1a1a1a;
+}
+
+.sign-in-modal {
+  position: fixed;
+  top: 0;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  background: rgba(0, 0, 0, 0.5);
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  z-index: 1000;
+  padding: 2rem;
+}
+
+.sign-in-card {
+  background: #ffffff;
+  border-radius: 12px;
+  padding: 2.5rem;
+  max-width: 500px;
+  width: 100%;
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.15);
+}
+
+.sign-in-card h2 {
+  font-size: 1.75rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -0.3px;
+}
+
+.sign-in-subtitle {
+  font-size: 0.95rem;
+  color: #666;
+  line-height: 1.6;
+  margin: 0 0 2rem 0;
+}
+
+.token-form {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.form-group {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.form-group label {
+  font-size: 0.875rem;
+  font-weight: 500;
+  color: #1a1a1a;
+}
+
+.form-input {
+  width: 100%;
+  padding: 0.875rem 1rem;
+  font-size: 1rem;
+  border: 1px solid #d1d5db;
+  border-radius: 8px;
+  background: #ffffff;
+  color: #1a1a1a;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.form-input:focus {
+  outline: none;
+  border-color: #1a1a1a;
+  box-shadow: 0 0 0 3px rgba(26, 26, 26, 0.1);
+}
+
+.form-help {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+  line-height: 1.5;
+}
+
+.form-help a {
+  color: #3b82f6;
+  text-decoration: none;
+}
+
+.form-help a:hover {
+  text-decoration: underline;
+}
+
+.form-error {
+  padding: 0.875rem;
+  background: #fef2f2;
+  border: 1px solid #fecaca;
+  border-radius: 8px;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.form-actions {
+  display: flex;
+  gap: 1rem;
+  justify-content: flex-end;
+  margin-top: 0.5rem;
+}
+
+.btn {
+  padding: 0.875rem 1.5rem;
+  font-size: 1rem;
+  font-weight: 500;
+  border: none;
+  border-radius: 8px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.btn-primary {
+  background: #1a1a1a;
+  color: #ffffff;
+}
+
+.btn-primary:hover:not(:disabled) {
+  background: #333;
+}
+
+.btn-primary:disabled {
+  opacity: 0.6;
+  cursor: not-allowed;
+}
+
+.btn-secondary {
+  background: #f3f4f6;
+  color: #4a4a4a;
+  border: 1px solid #e5e5e5;
+}
+
+.btn-secondary:hover {
+  background: #e5e7eb;
+}
