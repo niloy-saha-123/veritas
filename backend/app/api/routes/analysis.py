@@ -3,9 +3,13 @@
 from fastapi import APIRouter, HTTPException, UploadFile, File
 from typing import Optional, List
 from pydantic import BaseModel, Field
-from app.models.schemas import AnalysisRequest, AnalysisResponse, DiscrepancyReport, DiscrepancyType
+from app.models.schemas import (
+    AnalysisRequest, AnalysisResponse, DiscrepancyReport, DiscrepancyType,
+    CreatePRRequest, CreatePRResponse
+)
 from app.parsers.parser_factory import parse_code, get_all_functions
 from app.comparison.scorer import analyze_repository
+from app.services.pr_service import PRService, PRResult
 
 router = APIRouter()
 
@@ -443,3 +447,63 @@ async def analyze_github_repo(request: GitHubAnalysisRequest):
         import traceback
         traceback.print_exc()
         raise HTTPException(status_code=500, detail=f"Repository analysis failed: {str(e)}")
+
+
+@router.post("/analyze/github/create-pr", response_model=CreatePRResponse)
+async def create_pr_for_discrepancies(request: CreatePRRequest):
+    """
+    Create a GitHub Pull Request with documentation fixes based on discrepancies.
+    
+    Args:
+        request: PR creation request with repository URL, discrepancies, and metadata
+        
+    Returns:
+        CreatePRResponse with PR URL and status
+    """
+    try:
+        # Initialize PR service
+        pr_service = PRService()
+        
+        # Create PR
+        result = pr_service.create_pr_for_discrepancies(
+            repo_url=request.repo_url,
+            branch=request.branch,
+            discrepancies=request.discrepancies,
+            metadata=request.metadata,
+            pr_title=request.pr_title,
+            pr_body=request.pr_body
+        )
+        
+        if result.success:
+            print(f"✅ PR created successfully: {result.pr_url}")
+            return CreatePRResponse(
+                success=True,
+                pr_url=result.pr_url,
+                branch_name=result.branch_name,
+                files_changed=result.files_changed
+            )
+        else:
+            print(f"❌ Failed to create PR: {result.error}")
+            raise HTTPException(
+                status_code=400,
+                detail=result.error or "Failed to create PR"
+            )
+            
+    except ValueError as e:
+        # Missing GitHub token
+        raise HTTPException(
+            status_code=400,
+            detail=f"GitHub token required: {str(e)}. Set GITHUB_TOKEN environment variable."
+        )
+    except ImportError as e:
+        raise HTTPException(
+            status_code=500,
+            detail=f"Missing dependency: {str(e)}. Install with: pip install PyGithub"
+        )
+    except HTTPException:
+        raise
+    except Exception as e:
+        print(f"❌ Error creating PR: {e}")
+        import traceback
+        traceback.print_exc()
+        raise HTTPException(status_code=500, detail=f"PR creation failed: {str(e)}")

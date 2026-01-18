@@ -92,3 +92,22 @@ class FunctionSignature(BaseModel):
         prefix = "async " if self.is_async else ""
         return f"{prefix}def {self.name}({params_str}){ret}"
 
+
+class CreatePRRequest(BaseModel):
+    """Request model for creating a PR with documentation fixes."""
+    repo_url: str = Field(..., description="GitHub repository URL")
+    branch: str = Field("main", description="Base branch name")
+    discrepancies: List[DiscrepancyReport] = Field(..., description="List of discrepancies to fix")
+    metadata: Dict[str, Any] = Field(..., description="Analysis metadata")
+    pr_title: Optional[str] = Field(None, description="Custom PR title")
+    pr_body: Optional[str] = Field(None, description="Custom PR body")
+
+
+class CreatePRResponse(BaseModel):
+    """Response model for PR creation."""
+    success: bool
+    pr_url: Optional[str] = None
+    branch_name: Optional[str] = None
+    files_changed: int = 0
+    error: Optional[str] = None
+

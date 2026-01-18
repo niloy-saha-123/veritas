@@ -34,6 +34,7 @@ class Settings(BaseSettings):
     ARIZE_API_KEY: str = os.getenv("ARIZE_API_KEY", "")
     LEANMCP_API_KEY: str = os.getenv("LEANMCP_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")
     
     model_config = ConfigDict(
         env_file=".env",
