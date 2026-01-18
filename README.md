@@ -1,6 +1,6 @@
 # Veritas.dev
 
-**AI-Powered Documentation Verification for GitHub**
+**AI-Powered Documentation Verification for Code and Docs**
 
 Automatically verifies that your documentation matches your code on every PR. Uses hybrid AI (embeddings + LLM) to detect mismatches, missing docs, and outdated information.
 
@@ -63,9 +63,9 @@ nexhacks/
 ├── backend/                    # FastAPI Backend
 │   ├── app/
 │   │   ├── main.py            # Application entry point
-│   │   ├── github/            # GitHub App integration
-│   │   │   ├── webhook_handler.py  # PR event handling
-│   │   │   └── auth.py        # JWT auth, PR/Issue creation
+│   │   ├── github/            # (Optional) GitHub integration helpers
+│   │   │   ├── webhook_handler.py
+│   │   │   └── auth.py
 │   │   ├── parsers/           # Language parsers
 │   │   │   ├── python_parser.py
 │   │   │   ├── javascript_parser.py
@@ -94,7 +94,7 @@ nexhacks/
 │   │   └── App.jsx
 │   └── package.json
 │
-├── github-action/            # GitHub Action (optional)
+├── github-action/            # GitHub Action (preferred CI integration)
 │   ├── action.yml
 │   └── src/
 │
@@ -106,13 +106,7 @@ nexhacks/
 
 ## 🚀 Quick Start
 
-### 1. Install the GitHub App
-
-1. Go to: https://github.com/apps/veritas-docs-verifier
-2. Click "Install"
-3. Select repositories to enable
-
-### 2. Backend Setup
+### 1. Backend Setup
 
 ```bash
 cd backend
@@ -125,20 +119,24 @@ cp .env.example .env
 # Edit .env with your keys:
 # - GEMINI_API_KEY
 # - TOKEN_COMPANY_API_KEY
-# - GITHUB_APP_ID
-# - GITHUB_PRIVATE_KEY
-# - GITHUB_WEBHOOK_SECRET
+# - API_HOST
+# - API_PORT
+# - DEBUG
+# - ALLOWED_ORIGINS
 
 # Run server
-uvicorn main:app --reload --port 8000
+uvicorn app.main:app --reload --port 8000
 ```
 
 **Endpoints:**
-- Health: `http://localhost:8000/health`
-- Webhook: `POST http://localhost:8000/github/webhook`
-- Docs: `http://localhost:8000/docs`
+- Health: `http://localhost:8000/api/v1/health`
+- Analyze (raw content): `POST http://localhost:8000/api/v1/analyze`
+- Analyze (upload files): `POST http://localhost:8000/api/v1/analyze/upload`
+- Analyze (batch repo files): `POST http://localhost:8000/api/v1/analyze/batch`
+- Analyze GitHub repo: `POST http://localhost:8000/api/v1/analyze/github`
+- API Docs: `http://localhost:8000/api/docs`
 
-### 3. Frontend Setup (Landing Page)
+### 2. Frontend Setup (Landing Page)
 
 ```bash
 cd frontend
@@ -152,6 +150,35 @@ npm run dev
 
 Dashboard available at `http://localhost:3000`
 
+### 3. CI Integration (No GitHub App)
+
+- Use the provided GitHub Action to run verification in CI without a GitHub App.
+- Configure paths and behavior via inputs in `github-action/action.yml`.
+- Optionally fail the build on discrepancies.
+
+Example workflow:
+
+```yaml
+name: Veritas Docs Verification
+on:
+  pull_request:
+    paths:
+      - "src/**"
+      - "docs/**"
+
+jobs:
+  verify-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: Run Veritas Verification
+        uses: ./nexhacks/github-action
+        with:
+          code-path: ./src
+          docs-path: ./docs
+          fail-on-discrepancy: true
+```
+
 ---
 
 ## 🔧 Technology Stack
@@ -161,7 +188,6 @@ Dashboard available at `http://localhost:3000`
 - **Sentence Transformers** - Embedding generation
 - **Google Gemini 2.5 Flash** - LLM analysis
 - **Token Company** - Prompt compression
-- **PyJWT** - GitHub App authentication
 - **GitPython** - Repository cloning
 - **Python AST** - Code parsing
 
@@ -188,13 +214,6 @@ Dashboard available at `http://localhost:3000`
 GEMINI_API_KEY=your_gemini_api_key
 TOKEN_COMPANY_API_KEY=your_token_company_key
 
-# GitHub App
-GITHUB_APP_ID=your_app_id
-GITHUB_PRIVATE_KEY=-----BEGIN RSA PRIVATE KEY-----
-...
------END RSA PRIVATE KEY-----
-GITHUB_WEBHOOK_SECRET=your_webhook_secret
-
 # Server
 API_PORT=8000
 API_HOST=0.0.0.0
@@ -202,10 +221,9 @@ DEBUG=True
 ALLOWED_ORIGINS=http://localhost:3000,http://localhost:5173
 ```
 
-### Frontend `.env`
-
+### Frontend `.env` (optional)
 ```bash
-VITE_GITHUB_APP_KEY=https://github.com/apps/veritas-docs-verifier
+VITE_API_URL=http://localhost:8000
 ```
 
 ---
@@ -225,17 +243,21 @@ pytest tests/test_parsers.py -v
 pytest tests/test_comparison_engine.py -v
 ```
 
-### Test Webhook Locally
+### Test Analysis Endpoints Locally
 
 ```bash
-# Terminal 1: Run backend
-uvicorn main:app --reload --port 8000
+# Run backend
+uvicorn app.main:app --reload --port 8000
 
-# Terminal 2: Expose with ngrok
-ngrok http 8000
+# Analyze raw content
+curl -X POST "http://localhost:8000/api/v1/analyze" \
+  -H "Content-Type: application/json" \
+  -d '{"code_content": "def add(a,b): return a+b", "doc_content": "Function add(a, b) returns sum"}'
 
-# Update GitHub App webhook URL to ngrok URL
-# Create a test PR to trigger webhook
+# Analyze a GitHub repo (no GitHub App required)
+curl -X POST "http://localhost:8000/api/v1/analyze/github" \
+  -H "Content-Type: application/json" \
+  -d '{"repo_url": "https://github.com/user/repo", "branch": "main"}'
 ```
 
 ---
@@ -247,20 +269,16 @@ ngrok http 8000
 ```
 Developer creates PR
          ↓
-GitHub sends webhook to backend
+CI runs Veritas GitHub Action (or calls API directly)
          ↓
-Backend fetches:
-  • New code from PR branch
-  • Existing docs from base branch
-         ↓
-AI analyzes:
+Backend analyzes:
   • Embedding similarity (fast screening)
   • LLM analysis (detailed verification)
          ↓
 Decision:
-  ├─ Docs match code → Do nothing ✅
-  ├─ Missing docs → Create PR with generated docs 📝
-  └─ Mismatches → Create Issue with problems ⚠️
+  ├─ Docs match code → Pass ✅
+  ├─ Missing docs → Report with generated docs suggestions 📝
+  └─ Mismatches → Report detailed problems ⚠️
 ```
 
 ### Supported Languages
@@ -282,7 +300,7 @@ Decision:
 - 📊 Real-time analysis progress
 - 🎯 Trust score visualization
 - 📋 Detailed discrepancy reports
-- 🔍 GitHub repository analysis
+- 🔍 Repository analysis via URL
 - 🎭 Animated code examples
 - 📱 Responsive design
 
@@ -295,15 +313,10 @@ See [docs/api-documentation.md](docs/api-documentation.md) for detailed API refe
 ### Quick Example
 
 ```bash
-# Analyze a repository
-curl -X POST http://localhost:8000/analyze \
+# Analyze a GitHub repository (no app required)
+curl -X POST http://localhost:8000/api/v1/analyze/github \
   -H "Content-Type: application/json" \
-  -d '{
-    "github_url": "https://github.com/user/repo"
-  }'
-
-# Get results
-curl http://localhost:8000/results/{job_id}
+  -d '{"repo_url": "https://github.com/user/repo"}'
 ```
 
 ---
