@@ -34,12 +34,23 @@ class HybridComparator:
     - Low embedding similarity (<0.6): Mark as different, use LLM only if needed
     """
     
-    def __init__(self):
+    def __init__(self, use_token_company: bool = True):
+        """
+        Initialize HybridComparator.
+        
+        Args:
+            use_token_company: If True, use Token Company to compress prompts before sending to Gemini.
+                              If False, send prompts directly without compression.
+        """
         self.embedding_matcher = SemanticMatcher()
-        self.llm_comparator = GeminiComparator()
-        self.embedding_threshold_high = 0.85  # Above this, trust embedding score
-        self.embedding_threshold_medium = 0.60  # Between this and high, use LLM
-        self.embedding_threshold_very_low = 0.2  # Below this, skip LLM (complete mismatch)
+        self.llm_comparator = GeminiComparator(use_token_company=use_token_company)
+        # Optimized thresholds for speed (more embedding-only, fewer LLM calls)
+        self.embedding_threshold_high = 0.80  # Above this, trust embedding only (was 0.85, now lower = more cases use embeddings)
+        self.embedding_threshold_medium = 0.55  # Between this and high, use LLM (was 0.60, now lower gap = fewer LLM calls)
+        self.embedding_threshold_very_low = 0.30  # Below this, skip LLM (was 0.2, now higher = more skipping, faster)
+        
+        # Cache for comparison results (key: (code_func.name, doc_func.name), value: HybridComparisonResult)
+        self._cache: dict = {}
     
     def compare(
         self, 
@@ -50,6 +61,11 @@ class HybridComparator:
         Compare two functions using hybrid approach.
         Uses embeddings for fast screening, LLM for detailed analysis when needed.
         """
+        # Check cache first (simple name-based cache for speed)
+        cache_key = (code_func.name.lower(), doc_func.name.lower())
+        if cache_key in self._cache:
+            return self._cache[cache_key]
+        
         # Step 1: Compute embedding-based similarity
         similarity = self.embedding_matcher.compute_similarity(code_func, doc_func)
         embedding_score = similarity.score
@@ -64,19 +80,23 @@ class HybridComparator:
         has_param_mismatch = self._has_parameter_mismatch(code_func, doc_func)
         
         # Step 2: Decide on comparison strategy
-        # Very low similarity (<0.2) OR very different names (<0.3) = complete mismatch
+        # Very low similarity OR very different names = complete mismatch (skip LLM)
         if embedding_score < self.embedding_threshold_very_low or name_similarity < name_threshold:
             # Very different functions - trust embeddings, save LLM calls
-            return self._embedding_only_very_low(code_func, doc_func, similarity)
+            result = self._embedding_only_very_low(code_func, doc_func, similarity)
         elif embedding_score >= self.embedding_threshold_high and not has_param_mismatch:
             # High similarity AND no parameter mismatches - trust embeddings, no need for expensive LLM call
-            return self._embedding_only_result(code_func, doc_func, similarity)
+            result = self._embedding_only_result(code_func, doc_func, similarity)
         elif embedding_score >= self.embedding_threshold_medium:
             # Medium similarity - use LLM for detailed analysis
-            return self._hybrid_comparison(code_func, doc_func, similarity)
+            result = self._hybrid_comparison(code_func, doc_func, similarity)
         else:
-            # Low-medium similarity (0.2-0.6) - use LLM to confirm and get detailed issues
-            return self._llm_focused_comparison(code_func, doc_func, similarity)
+            # Low-medium similarity (0.3-0.55) - use LLM to confirm and get detailed issues
+            result = self._llm_focused_comparison(code_func, doc_func, similarity)
+        
+        # Cache result for future use (keyed by function names)
+        self._cache[cache_key] = result
+        return result
     
     def _embedding_only_very_low(
         self,
@@ -123,8 +143,9 @@ class HybridComparator:
         # Still do a quick check for obvious mismatches
         issues = self._quick_issue_check(code_func, doc_func)
         
+        # More lenient matching - 70% is good enough for high similarity matches
         return HybridComparisonResult(
-            matches=confidence >= 80,
+            matches=confidence >= 70,  # Lowered from 80 to 70 to be less harsh
             confidence=confidence,
             issues=issues,
             embedding_score=similarity.score,
@@ -153,8 +174,9 @@ class HybridComparator:
             0.6 * llm_confidence
         )
         
+        # More lenient matching - 70% is good enough for hybrid matches
         return HybridComparisonResult(
-            matches=combined_confidence >= 80,
+            matches=combined_confidence >= 70,  # Lowered from 80 to 70 to be less harsh
             confidence=combined_confidence,
             issues=llm_result.issues,
             embedding_score=similarity.score,

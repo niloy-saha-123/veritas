@@ -22,6 +22,9 @@ class Settings(BaseSettings):
     API_PORT: int = int(os.getenv("API_PORT", "8000"))
     DEBUG: bool = os.getenv("DEBUG", "True").lower() == "true"
     
+    # Database Configuration
+    DATABASE_URL: str = os.getenv("DATABASE_URL", "sqlite:///./veritas.db")
+    
     # CORS Settings
     ALLOWED_ORIGINS: List[str] = os.getenv(
         "ALLOWED_ORIGINS", 
@@ -31,6 +34,12 @@ class Settings(BaseSettings):
     # API Keys for Integrations
     TOKEN_COMPANY_API_KEY: str = os.getenv("TOKEN_COMPANY_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
+    GITHUB_TOKEN: str = os.getenv("GITHUB_TOKEN", "")  # Fallback for non-authenticated users
+    
+    # GitHub OAuth
+    GITHUB_CLIENT_ID: str = os.getenv("GITHUB_CLIENT_ID", "")
+    GITHUB_CLIENT_SECRET: str = os.getenv("GITHUB_CLIENT_SECRET", "")
+    ENCRYPTION_KEY: str = os.getenv("ENCRYPTION_KEY", "")  # For encrypting tokens
     
     model_config = ConfigDict(
         env_file=".env",

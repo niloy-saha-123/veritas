@@ -92,3 +92,20 @@ class FunctionSignature(BaseModel):
         prefix = "async " if self.is_async else ""
         return f"{prefix}def {self.name}({params_str}){ret}"
 
+
+class CreateIssueRequest(BaseModel):
+    """Request model for creating an Issue with documentation discrepancies."""
+    repo_url: str = Field(..., description="GitHub repository URL")
+    discrepancies: List[DiscrepancyReport] = Field(..., description="List of discrepancies found")
+    metadata: Dict[str, Any] = Field(..., description="Analysis metadata")
+    issue_title: Optional[str] = Field(None, description="Custom Issue title")
+    issue_body: Optional[str] = Field(None, description="Custom Issue body")
+    user_id: Optional[int] = Field(None, description="User ID for retrieving stored token")
+
+
+class CreateIssueResponse(BaseModel):
+    """Response model for Issue creation."""
+    success: bool
+    issue_url: Optional[str] = None
+    error: Optional[str] = None
+

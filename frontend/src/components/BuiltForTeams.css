@@ -1,0 +1,277 @@
+.built-for-teams {
+  background: #faf9f7;
+  padding: 6rem 4rem;
+  width: 100%;
+}
+
+.built-for-teams-container {
+  max-width: 1400px;
+  margin: 0 auto;
+}
+
+.section-main-title {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  text-align: center;
+  letter-spacing: -1px;
+  margin: 0 0 4rem 0;
+}
+
+.features-layout {
+  display: grid;
+  grid-template-columns: 2fr 1fr;
+  gap: 2rem;
+}
+
+/* Multi-Language Card */
+.multi-language-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+}
+
+.card-title {
+  font-size: 1.5rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 1.5rem 0;
+  letter-spacing: -0.3px;
+}
+
+.language-tabs {
+  display: flex;
+  gap: 0.5rem;
+  margin-bottom: 1.5rem;
+  flex-wrap: wrap;
+}
+
+.language-tab {
+  padding: 0.5rem 1rem;
+  font-size: 0.875rem;
+  font-weight: 500;
+  border: 1px solid #e5e5e5;
+  border-radius: 6px;
+  background: #f5f5f5;
+  color: #666;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+
+.language-tab:hover {
+  background: #e5e5e5;
+  border-color: #d1d5db;
+}
+
+.language-tab.active {
+  background: #1a1a1a;
+  color: #ffffff;
+  border-color: #1a1a1a;
+}
+
+/* Code Editor */
+.code-editor {
+  background: #f9f9f9;
+  border: 1px solid #e5e5e5;
+  border-radius: 8px;
+  overflow: hidden;
+}
+
+.file-tabs {
+  display: flex;
+  gap: 0;
+  background: #f0f0f0;
+  border-bottom: 1px solid #e5e5e5;
+  padding: 0 0.75rem;
+}
+
+.file-tab {
+  padding: 0.75rem 1rem;
+  font-size: 0.875rem;
+  color: #666;
+  cursor: pointer;
+  border-bottom: 2px solid transparent;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  transition: all 0.2s;
+}
+
+.file-tab:hover {
+  color: #1a1a1a;
+}
+
+.file-tab.active {
+  color: #1a1a1a;
+  border-bottom-color: #1a1a1a;
+  font-weight: 500;
+}
+
+.code-content {
+  padding: 1.5rem;
+  background: #ffffff;
+  overflow-x: auto;
+  max-height: 400px;
+  overflow-y: auto;
+}
+
+.code-content pre {
+  margin: 0;
+  font-family: 'Monaco', 'Menlo', 'Courier New', monospace;
+  font-size: 0.875rem;
+  line-height: 1.6;
+  color: #1a1a1a;
+  white-space: pre;
+}
+
+.code-content code {
+  display: block;
+}
+
+/* Syntax highlighting for different languages */
+.language-python .code-content code {
+  color: #1a1a1a;
+}
+
+.language-typescript .code-content code {
+  color: #1a1a1a;
+}
+
+.language-java .code-content code {
+  color: #1a1a1a;
+}
+
+/* Feature Cards */
+.feature-cards {
+  display: flex;
+  flex-direction: column;
+  gap: 1.5rem;
+}
+
+.feature-card {
+  background: #ffffff;
+  border: 1px solid #e5e5e5;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.04);
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  text-align: center;
+  transition: all 0.3s ease;
+}
+
+.feature-card:hover {
+  box-shadow: 0 4px 12px rgba(0, 0, 0, 0.08);
+  transform: translateY(-2px);
+}
+
+/* Trust Score */
+.trust-score-circle {
+  position: relative;
+  width: 120px;
+  height: 120px;
+  margin-bottom: 1rem;
+}
+
+.score-ring {
+  width: 100%;
+  height: 100%;
+  transform: rotate(-90deg);
+}
+
+.score-ring-progress {
+  transition: stroke-dashoffset 1s ease;
+}
+
+.score-value {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%);
+  font-size: 1.75rem;
+  font-weight: 700;
+  color: #1a1a1a;
+}
+
+.feature-label {
+  font-size: 0.95rem;
+  font-weight: 500;
+  color: #1a1a1a;
+  margin: 0;
+}
+
+/* GitHub Integration */
+.github-icon {
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.feature-title {
+  font-size: 1.125rem;
+  font-weight: 600;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem 0;
+}
+
+.feature-subtitle {
+  font-size: 0.875rem;
+  color: #666;
+  margin: 0;
+}
+
+/* Time Card */
+.time-icon {
+  color: #1a1a1a;
+  margin-bottom: 1rem;
+}
+
+.time-value {
+  font-size: 2.5rem;
+  font-weight: 700;
+  color: #1a1a1a;
+  margin: 0 0 0.5rem 0;
+  letter-spacing: -1px;
+}
+
+/* Responsive */
+@media (max-width: 1024px) {
+  .features-layout {
+    grid-template-columns: 1fr;
+    gap: 2rem;
+  }
+
+  .section-main-title {
+    font-size: 2rem;
+  }
+
+  .feature-cards {
+    display: grid;
+    grid-template-columns: repeat(3, 1fr);
+    gap: 1.5rem;
+  }
+}
+
+@media (max-width: 768px) {
+  .built-for-teams {
+    padding: 4rem 2rem;
+  }
+
+  .section-main-title {
+    font-size: 1.75rem;
+  }
+
+  .feature-cards {
+    grid-template-columns: 1fr;
+  }
+
+  .language-tabs {
+    gap: 0.375rem;
+  }
+
+  .language-tab {
+    padding: 0.5rem 0.75rem;
+    font-size: 0.8rem;
+  }
+}

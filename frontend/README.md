@@ -1,46 +1,35 @@
-# Veritas Frontend
+# Veritas.dev Dashboard
 
-Frontend dashboard for Veritas - AI-powered documentation verification.
+Paper-white Kindle-like dashboard for GitHub repository documentation verification.
+
+## Features
+
+- ✨ Clean, minimal paper-white design
+- 📊 Real-time analysis progress
+- 🎯 Trust score visualization
+- 📋 Detailed discrepancy reports
+- 🔍 GitHub repository analysis
 
 ## Setup
 
-1. Install dependencies:
 ```bash
+cd frontend
 npm install
-```
-
-2. Start development server:
-```bash
 npm run dev
 ```
 
-3. Build for production:
-```bash
-npm run build
-```
+Dashboard will be available at `http://localhost:5173`
 
-## Project Structure
+## Usage
 
-```
-frontend/
-├── src/
-│   ├── components/       # React components
-│   │   ├── Header.jsx
-│   │   ├── Hero.jsx
-│   │   ├── WorkflowDiagram.jsx
-│   │   ├── ProductIntro.jsx
-│   │   ├── SplitSection.jsx
-│   │   ├── LiveExample.jsx
-│   │   ├── ModernTeamsSection.jsx
-│   │   ├── TrustScoreChart.jsx
-│   │   ├── PricingSection.jsx
-│   │   └── Footer.jsx
-│   ├── constants/        # Constants and configuration
-│   │   └── constants.js
-│   ├── App.jsx          # Main app component
-│   └── index.jsx        # Entry point
-├── index.html
-├── package.json
-└── vite.config.js
-```
+1. Enter GitHub repository URL
+2. Click "Start Analysis"
+3. View trust score and discrepancies
+4. Review detailed issues with suggestions
 
+## Design
+
+- Paper-white background (#faf9f7)
+- Clean typography
+- Minimal shadows and borders
+- High contrast for readability

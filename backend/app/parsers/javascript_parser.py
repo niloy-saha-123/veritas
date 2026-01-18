@@ -139,3 +139,18 @@ def _parse_params_string(params_str: str) -> List[Parameter]:
         ))
     
     return parameters
+
+
+def parse_typescript(code: str, file_path: str) -> List[FunctionSignature]:
+    """
+    Parse TypeScript code using the same parser as JavaScript.
+    
+    Args:
+        code: TypeScript source code as string
+        file_path: Path to the file
+    
+    Returns:
+        List of FunctionSignature objects
+    """
+    # TypeScript syntax is similar to JavaScript, so we can reuse the JavaScript parser
+    return parse_javascript(code, file_path)

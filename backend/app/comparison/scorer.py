@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Tuple
+from datetime import datetime
 
 from app.models.function_signature import FunctionSignature
 from app.comparison.engine import GeminiComparator, Issue
@@ -21,7 +22,7 @@ def match_functions(
         matches_with_scores = matcher.find_best_matches(
             code_functions, 
             doc_functions,
-            threshold=0.5  # Only match if similarity >= 0.5
+            threshold=0.4  # Lowered from 0.5 to 0.4 to catch more matches (camelCase vs snake_case, etc.)
         )
         # Extract just the function pairs (ignore similarity scores for now)
         matches = [(code_func, doc_func) for code_func, doc_func, _ in matches_with_scores]
@@ -47,6 +48,7 @@ def analyze_repository(
     code_functions: List[FunctionSignature],
     doc_functions: List[FunctionSignature],
     use_hybrid: bool = True,
+    use_token_company: bool = True,
 ) -> Dict[str, Any]:
     """
     Analyze repository using ML-enhanced hybrid comparison.
@@ -55,15 +57,17 @@ def analyze_repository(
         code_functions: Functions extracted from code
         doc_functions: Functions extracted from documentation
         use_hybrid: If True, use hybrid engine (embeddings + LLM). If False, use LLM only.
+        use_token_company: If True, use Token Company to compress prompts before sending to Gemini.
+                          If False, send prompts directly without compression.
     
     Returns:
         Analysis results with trust score, verified count, and issues
     """
     # Use hybrid comparator (embeddings + LLM) or LLM-only
     if use_hybrid:
-        comparator = HybridComparator()
+        comparator = HybridComparator(use_token_company=use_token_company)
     else:
-        comparator = GeminiComparator()
+        comparator = GeminiComparator(use_token_company=use_token_company)
     
     # Use semantic matching for better function pairing
     matches = match_functions(code_functions, doc_functions, use_semantic_matching=True)
@@ -74,8 +78,17 @@ def analyze_repository(
     total_confidence = 0
     methods_used = []
 
-    for code_func, doc_func in matches:
+    total_matches = len(matches)
+    print(f"\n{'='*80}")
+    print(f"🔍 Starting comparison of {total_matches} function pairs...")
+    print(f"📅 Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}\n")
+
+    for idx, (code_func, doc_func) in enumerate(matches, 1):
         if code_func is None:
+            func_name = doc_func.name
+            status_msg = f"⚠️  [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Documented but not in code: {func_name}"
+            print(status_msg)
             all_issues.append(Issue(
                 severity="medium",
                 function=doc_func.name,
@@ -84,9 +97,14 @@ def analyze_repository(
                 docs_say=f"Documents {doc_func.name}()",
                 suggested_fix="Remove from documentation or check if it was renamed",
             ))
-            confidence_scores.append(0)
+            # Give partial credit (30%) instead of 0 - this is less harsh and more realistic
+            # A missing function is not as bad as a completely wrong function
+            confidence_scores.append(30)
             methods_used.append("unmatched")
         elif doc_func is None:
+            func_name = code_func.name
+            status_msg = f"📝 [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Code but not documented: {func_name}"
+            print(status_msg)
             all_issues.append(Issue(
                 severity="low",
                 function=code_func.name,
@@ -95,13 +113,25 @@ def analyze_repository(
                 docs_say="No documentation found",
                 suggested_fix="Add documentation for this function",
             ))
-            confidence_scores.append(0)
+            # Give partial credit (50%) instead of 0 - missing docs is less critical than wrong docs
+            # The function exists and works, just undocumented
+            confidence_scores.append(50)
             methods_used.append("unmatched")
         else:
+            func_name = f"{code_func.name} ↔ {doc_func.name}"
+            status_msg = f"🔍 [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Comparing: {func_name}"
+            print(status_msg)
+            
             # Perform hybrid or LLM-only comparison
             if use_hybrid:
                 result = comparator.compare(code_func, doc_func)
                 methods_used.append(result.method)
+                method_display = {
+                    'embedding_only': '⚡ (embedding-only)',
+                    'hybrid': '🤖⚡ (hybrid: embedding + LLM)',
+                    'llm_only': '🤖 (LLM-only)'
+                }.get(result.method, f'({result.method})')
+                print(f"   └─ Method: {method_display}, Confidence: {result.confidence}%, Embedding: {result.embedding_score:.2f}")
                 # Convert to ComparisonResult for compatibility
                 from app.comparison.engine import ComparisonResult
                 result_comp = ComparisonResult(
@@ -110,13 +140,16 @@ def analyze_repository(
                     issues=result.issues
                 )
             else:
+                print(f"   └─ Method: 🤖 (LLM-only)")
                 result_comp = comparator.compare(code_func, doc_func)
                 methods_used.append("llm_only")
+                print(f"   └─ Confidence: {result_comp.confidence}%")
             
             confidence = result_comp.confidence
             
-            # Consider verified if confidence >= 80 (semantic equivalence)
-            if confidence >= 80:
+            # Consider verified if confidence >= 70 (more lenient threshold for semantic equivalence)
+            # Lowered from 80 to 70 to be less harsh - even partial matches with minor differences are acceptable
+            if confidence >= 70:
                 verified += 1
             else:
                 # Only report issues if confidence is below threshold
@@ -124,6 +157,11 @@ def analyze_repository(
             
             confidence_scores.append(confidence)
             total_confidence += confidence
+
+    print(f"\n{'='*80}")
+    print(f"✅ Completed comparison of {total_matches} function pairs")
+    print(f"📅 Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}\n")
 
     total = len(matches)
     

@@ -37,18 +37,41 @@ class ComparisonResult:
 
 
 class GeminiComparator:
-    """Gemini-based comparison engine with Token Company compression."""
+    """Gemini-based comparison engine with optional Token Company compression."""
 
-    def __init__(self):
+    def __init__(self, use_token_company: bool = True):
+        """
+        Initialize GeminiComparator.
+        
+        Args:
+            use_token_company: If True, use Token Company to compress prompts before sending to Gemini.
+                              If False, send prompts directly without compression.
+        """
         self.api_key = settings.GEMINI_API_KEY
         self.model = "gemini-2.5-flash"
-        self.token_client = TokenCompanyClient()
+        self.use_token_company = use_token_company
+        self.token_client = TokenCompanyClient() if use_token_company else None
 
     def compare(self, code_func: FunctionSignature, doc_func: FunctionSignature) -> ComparisonResult:
         prompt = self._build_prompt(code_func, doc_func)
 
-        compressed = self.token_client.compress_input(prompt, aggressiveness=0.8)
-        prompt_text = compressed.get("output", prompt)
+        # Only compress if Token Company is enabled
+        # Use moderate aggressiveness (0.5) for better context preservation
+        # while still reducing token usage
+        if self.use_token_company and self.token_client:
+            compressed = self.token_client.compress_input(prompt, aggressiveness=0.5)
+            prompt_text = compressed.get("output", prompt)
+            
+            # Log compression stats if available (for debugging)
+            if compressed.get("compressed") and compressed.get("original_tokens"):
+                original = compressed.get("original_tokens")
+                compressed_tokens = compressed.get("compressed_tokens")
+                if original and compressed_tokens:
+                    reduction = int((1 - compressed_tokens / original) * 100)
+                    if reduction > 0:
+                        print(f"   📉 Token compression: {original} → {compressed_tokens} tokens ({reduction}% reduction)")
+        else:
+            prompt_text = prompt
 
         response_text = self._call_gemini(prompt_text)
         result = self._parse_response(response_text, code_func.name)
@@ -116,9 +139,15 @@ ANALYSIS INSTRUCTIONS:
    - Minor naming variations with same meaning
    - Optional documentation details
 
-4. Set confidence 80-100% if functions are semantically equivalent (even with minor doc gaps)
-5. Set confidence 50-79% if mostly similar but has some notable differences
-6. Set confidence 0-49% only if functions are fundamentally different
+4. CONFIDENCE SCORING GUIDELINES (be generous - favor high scores):
+   - 90-100%: Functions are essentially the same (semantic match, minor differences OK)
+   - 80-89%: Functions match well, with only minor documentation gaps or style differences
+   - 70-79%: Functions are similar but have some notable differences (missing optional params, etc.)
+   - 60-69%: Functions are related but have moderate differences
+   - 0-59%: Only use for fundamentally different functions or complete mismatches
+   
+   IMPORTANT: Default to higher confidence scores. Minor issues should NOT significantly reduce confidence.
+   Only reduce confidence substantially for CRITICAL mismatches that would cause runtime errors.
 
 Respond with JSON only:
 {{
@@ -210,17 +239,30 @@ Respond with JSON only:
         except Exception:
             result = {"matches": False, "confidence": 0, "issues": []}
 
-        issues = [
-            Issue(
-                severity=i.get("severity", "medium"),
-                function=func_name,
-                issue=i.get("issue", ""),
-                code_has=i.get("code_has", ""),
-                docs_say=i.get("docs_say", ""),
-                suggested_fix=i.get("suggested_fix", ""),
-            )
-            for i in result.get("issues", [])
-        ]
+        issues = []
+        for i in result.get("issues", []):
+            # Handle both dict and string formats from LLM
+            if isinstance(i, str):
+                # If LLM returned a string, create a simple issue
+                issues.append(Issue(
+                    severity="medium",
+                    function=func_name,
+                    issue=i,
+                    code_has="",
+                    docs_say="",
+                    suggested_fix="",
+                ))
+            elif isinstance(i, dict):
+                # Normal dict format
+                issues.append(Issue(
+                    severity=i.get("severity", "medium"),
+                    function=func_name,
+                    issue=i.get("issue", ""),
+                    code_has=i.get("code_has", ""),
+                    docs_say=i.get("docs_say", ""),
+                    suggested_fix=i.get("suggested_fix", ""),
+                ))
+            # Skip invalid formats
 
         return ComparisonResult(
             matches=result.get("matches", False),

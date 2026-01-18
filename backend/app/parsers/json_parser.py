@@ -80,7 +80,7 @@ def _parse_openapi(data: dict, filename: str) -> List[FunctionSignature]:
                 parameters=params,
                 return_type=return_type,
                 docstring=summary,
-                line_number=1,
+                line_number=0,
                 file_path=filename
             ))
     
@@ -95,9 +95,11 @@ def _parse_package_json(data: dict, filename: str) -> List[FunctionSignature]:
     for name, command in scripts.items():
         functions.append(FunctionSignature(
             name=f"npm run {name}",
-            params=[],
+            parameters=[],
+            return_type=None,
             docstring=command,
-            filename=filename
+            line_number=0,
+            file_path=filename
         ))
     
     return functions
@@ -116,8 +118,9 @@ def _parse_generic_api(data: dict, filename: str, prefix: str = "") -> List[Func
                 functions.append(FunctionSignature(
                     name=key,
                     parameters=[],
+                    return_type=None,
                     docstring=str(value.get('description', '')),
-                    line_number=1,
+                    line_number=0,
                     file_path=filename
                 ))
             else:
