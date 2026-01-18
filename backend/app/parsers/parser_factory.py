@@ -10,6 +10,9 @@ def parse_code(filename: str, code: str) -> List[FunctionSignature]:
     
     Supported: .java, .md, .markdown, .json, .py, .js, .jsx, .ts, .tsx
     """
+    if not code or not code.strip():
+        return []
+    
     filename_lower = filename.lower()
     
     if filename_lower.endswith('.java'):
@@ -25,7 +28,7 @@ def parse_code(filename: str, code: str) -> List[FunctionSignature]:
     elif filename_lower.endswith(('.ts', '.tsx')):
         return _parse_typescript(code, filename)
     else:
-        print(f"Unsupported file type: {filename}")
+        # Not an error - just unsupported file type
         return []
 
 

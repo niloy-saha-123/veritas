@@ -90,8 +90,9 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
                 code_block_content = []
                 code_block_start = line_num
             else:
-                # End of code block - parse its contents
-                if code_block_content:
+                # End of code block - parse its contents (but be selective)
+                # Only parse code blocks if we're in a function documentation section
+                if code_block_content and current_heading and _looks_like_function_name(current_heading):
                     block_funcs = _parse_code_block(
                         '\n'.join(code_block_content),
                         code_block_lang,
@@ -99,6 +100,8 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
                         filename,
                         current_heading
                     )
+                    # Filter out obvious false positives
+                    block_funcs = [f for f in block_funcs if len(f.name) > 2]
                     functions.extend(block_funcs)
                 in_code_block = False
             continue
@@ -107,9 +110,13 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
             code_block_content.append(line)
             continue
         
-        # Look for inline function references: `functionName(params)`
-        inline_funcs = _parse_inline_refs(line, line_num, filename)
-        functions.extend(inline_funcs)
+        # Look for inline function references: `functionName(params)` (but be more selective)
+        # Only parse inline refs in code blocks or when clearly in an API documentation context
+        if current_heading and _looks_like_function_name(current_heading):
+            inline_funcs = _parse_inline_refs(line, line_num, filename)
+            # Filter out obvious false positives
+            inline_funcs = [f for f in inline_funcs if len(f.name) > 2 and not f.name.lower() in ['if', 'for', 'while', 'return']]
+            functions.extend(inline_funcs)
     
     # Finalize last heading if it looks like a function name
     if current_heading and _looks_like_function_name(current_heading):
@@ -122,31 +129,80 @@ def parse_markdown(code: str, filename: str = "") -> List[FunctionSignature]:
         if func:
             functions.append(func)
     
-    return functions
+    # Deduplicate functions by name (keep first occurrence)
+    seen_names = set()
+    deduplicated = []
+    for func in functions:
+        name_key = func.name.lower()
+        if name_key not in seen_names:
+            seen_names.add(name_key)
+            deduplicated.append(func)
+    
+    return deduplicated
 
 
 def _looks_like_function_name(text: str) -> bool:
-    """Check if a heading text looks like a function name."""
+    """Check if a heading text looks like a function name. Balanced filtering."""
     # Remove backticks if present
     text = text.strip('`')
     
-    # Function names typically:
-    # - Don't contain spaces (except snake_case, camelCase)
-    # - Start with lowercase or underscore
-    # - Contain alphanumeric, underscores, maybe camelCase
-    # - Are not common section titles
-    if ' ' in text and not ('_' in text or text[0].islower()):
+    # Skip if empty or too short
+    if not text or len(text) < 2:
         return False
     
-    # Skip common section titles
-    skip_words = ['parameters', 'parameter', 'returns', 'return', 'example', 'examples', 
-                  'description', 'usage', 'notes', 'see also', 'raises', 'raises', 'warnings']
+    # Skip obvious non-function section titles
+    skip_words = [
+        'parameters', 'parameter', 'returns', 'return', 'description', 
+        'overview', 'introduction', 'getting started', 'installation',
+        'changelog', 'contributing', 'license', 'api reference'
+    ]
     if text.lower() in skip_words:
         return False
     
-    # Check if it matches function name patterns (alphanumeric + underscore, maybe camelCase)
-    pattern = r'^[a-zA-Z_][a-zA-Z0-9_]*$|^[a-z][a-zA-Z0-9]*$'
-    return bool(re.match(pattern, text))
+    # Remove parentheses if present (e.g., "functionName()")
+    clean_text = text.replace('()', '').strip()
+    
+    # Skip if it's clearly a sentence (more than 4 words)
+    words = clean_text.split()
+    if len(words) > 4:
+        return False
+    
+    # Length check (not too long for a function name)
+    if len(clean_text) > 70:
+        return False
+    
+    # Reject if starts with number or special char (except underscore)
+    if not clean_text[0].isalpha() and clean_text[0] != '_':
+        return False
+    
+    # Allow various function name patterns:
+    # - snake_case, camelCase, PascalCase
+    # - kebab-case
+    # - module.function
+    # - Short phrases (2-4 words) that look like function names
+    
+    # If it's a single word or has dots/underscores, check pattern
+    if ' ' not in clean_text:
+        # Single identifier: must match typical function name pattern
+        if re.match(r'^[a-zA-Z_][a-zA-Z0-9_.-]*$', clean_text):
+            return True
+    
+    # If it has spaces (multi-word), allow if:
+    # - 2-4 words
+    # - Each word looks like an identifier part
+    # - Not starting with article/preposition (e.g., "the", "a", "how to")
+    if ' ' in clean_text and 2 <= len(words) <= 4:
+        # Skip if starts with common article/preposition
+        if words[0].lower() not in ('the', 'a', 'an', 'how', 'what', 'when', 'where', 'why', 'to'):
+            # Check if words look like identifier parts
+            if all(re.match(r'^[a-zA-Z][a-zA-Z0-9]*$', w) for w in words):
+                return True
+    
+    # Try to match common function naming patterns
+    if re.match(r'^[a-zA-Z_][a-zA-Z0-9_.-]*$', clean_text):
+        return True
+    
+    return False
 
 
 def _parse_function_from_heading(heading: str, heading_line: int, section_content: List[str], filename: str) -> FunctionSignature:
@@ -249,12 +305,20 @@ def _parse_inline_refs(line: str, line_num: int, filename: str) -> List[Function
     # Pattern: `functionName(...)` or `moduleName.functionName(...)`
     pattern = r'`(?:[\w.]+\.)?(\w+)\(([^)]*)\)`'
     
+    # Common non-function patterns to skip
+    skip_patterns = ['print', 'log', 'console', 'example', 'example_', 'test_', 
+                     'if', 'while', 'for', 'return', 'yield', 'assert', 'raise']
+    
     for match in re.finditer(pattern, line):
         name = match.group(1)
         params_str = match.group(2)
         
-        # Skip common non-functions
-        if name.lower() in ('print', 'log', 'console', 'example'):
+        # Skip common non-functions and test functions
+        if name.lower() in skip_patterns or name.lower().startswith(('test_', 'example_')):
+            continue
+        
+        # Skip if it's clearly not a function name (e.g., HTML tags, URLs)
+        if '.' in name.split('(')[0] and not any(c.isalpha() for c in name):
             continue
         
         params = []

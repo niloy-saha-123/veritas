@@ -77,10 +77,11 @@ def _parse_openapi(data: dict, filename: str) -> List[FunctionSignature]:
             
             functions.append(FunctionSignature(
                 name=name,
-                params=params,
+                parameters=params,
                 return_type=return_type,
                 docstring=summary,
-                filename=filename
+                line_number=0,
+                file_path=filename
             ))
     
     return functions
@@ -94,9 +95,11 @@ def _parse_package_json(data: dict, filename: str) -> List[FunctionSignature]:
     for name, command in scripts.items():
         functions.append(FunctionSignature(
             name=f"npm run {name}",
-            params=[],
+            parameters=[],
+            return_type=None,
             docstring=command,
-            filename=filename
+            line_number=0,
+            file_path=filename
         ))
     
     return functions
@@ -114,9 +117,11 @@ def _parse_generic_api(data: dict, filename: str, prefix: str = "") -> List[Func
             if 'url' in value or 'endpoint' in value or 'method' in value:
                 functions.append(FunctionSignature(
                     name=key,
-                    params=[],
+                    parameters=[],
+                    return_type=None,
                     docstring=str(value.get('description', '')),
-                    filename=filename
+                    line_number=0,
+                    file_path=filename
                 ))
             else:
                 # Recurse into nested objects

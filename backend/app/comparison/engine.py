@@ -210,17 +210,30 @@ Respond with JSON only:
         except Exception:
             result = {"matches": False, "confidence": 0, "issues": []}
 
-        issues = [
-            Issue(
-                severity=i.get("severity", "medium"),
-                function=func_name,
-                issue=i.get("issue", ""),
-                code_has=i.get("code_has", ""),
-                docs_say=i.get("docs_say", ""),
-                suggested_fix=i.get("suggested_fix", ""),
-            )
-            for i in result.get("issues", [])
-        ]
+        issues = []
+        for i in result.get("issues", []):
+            # Handle both dict and string formats from LLM
+            if isinstance(i, str):
+                # If LLM returned a string, create a simple issue
+                issues.append(Issue(
+                    severity="medium",
+                    function=func_name,
+                    issue=i,
+                    code_has="",
+                    docs_say="",
+                    suggested_fix="",
+                ))
+            elif isinstance(i, dict):
+                # Normal dict format
+                issues.append(Issue(
+                    severity=i.get("severity", "medium"),
+                    function=func_name,
+                    issue=i.get("issue", ""),
+                    code_has=i.get("code_has", ""),
+                    docs_say=i.get("docs_say", ""),
+                    suggested_fix=i.get("suggested_fix", ""),
+                ))
+            # Skip invalid formats
 
         return ComparisonResult(
             matches=result.get("matches", False),

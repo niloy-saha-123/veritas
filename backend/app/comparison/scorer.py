@@ -1,4 +1,5 @@
 from typing import List, Dict, Any, Tuple
+from datetime import datetime
 
 from app.models.function_signature import FunctionSignature
 from app.comparison.engine import GeminiComparator, Issue
@@ -74,8 +75,17 @@ def analyze_repository(
     total_confidence = 0
     methods_used = []
 
-    for code_func, doc_func in matches:
+    total_matches = len(matches)
+    print(f"\n{'='*80}")
+    print(f"🔍 Starting comparison of {total_matches} function pairs...")
+    print(f"📅 Started at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}\n")
+
+    for idx, (code_func, doc_func) in enumerate(matches, 1):
         if code_func is None:
+            func_name = doc_func.name
+            status_msg = f"⚠️  [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Documented but not in code: {func_name}"
+            print(status_msg)
             all_issues.append(Issue(
                 severity="medium",
                 function=doc_func.name,
@@ -87,6 +97,9 @@ def analyze_repository(
             confidence_scores.append(0)
             methods_used.append("unmatched")
         elif doc_func is None:
+            func_name = code_func.name
+            status_msg = f"📝 [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Code but not documented: {func_name}"
+            print(status_msg)
             all_issues.append(Issue(
                 severity="low",
                 function=code_func.name,
@@ -98,10 +111,20 @@ def analyze_repository(
             confidence_scores.append(0)
             methods_used.append("unmatched")
         else:
+            func_name = f"{code_func.name} ↔ {doc_func.name}"
+            status_msg = f"🔍 [{idx}/{total_matches}] {datetime.now().strftime('%H:%M:%S')} - Comparing: {func_name}"
+            print(status_msg)
+            
             # Perform hybrid or LLM-only comparison
             if use_hybrid:
                 result = comparator.compare(code_func, doc_func)
                 methods_used.append(result.method)
+                method_display = {
+                    'embedding_only': '⚡ (embedding-only)',
+                    'hybrid': '🤖⚡ (hybrid: embedding + LLM)',
+                    'llm_only': '🤖 (LLM-only)'
+                }.get(result.method, f'({result.method})')
+                print(f"   └─ Method: {method_display}, Confidence: {result.confidence}%, Embedding: {result.embedding_score:.2f}")
                 # Convert to ComparisonResult for compatibility
                 from app.comparison.engine import ComparisonResult
                 result_comp = ComparisonResult(
@@ -110,8 +133,10 @@ def analyze_repository(
                     issues=result.issues
                 )
             else:
+                print(f"   └─ Method: 🤖 (LLM-only)")
                 result_comp = comparator.compare(code_func, doc_func)
                 methods_used.append("llm_only")
+                print(f"   └─ Confidence: {result_comp.confidence}%")
             
             confidence = result_comp.confidence
             
@@ -124,6 +149,11 @@ def analyze_repository(
             
             confidence_scores.append(confidence)
             total_confidence += confidence
+
+    print(f"\n{'='*80}")
+    print(f"✅ Completed comparison of {total_matches} function pairs")
+    print(f"📅 Finished at: {datetime.now().strftime('%Y-%m-%d %H:%M:%S')}")
+    print(f"{'='*80}\n")
 
     total = len(matches)
     
