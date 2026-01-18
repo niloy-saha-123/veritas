@@ -30,9 +30,6 @@ class Settings(BaseSettings):
     
     # API Keys for Integrations
     TOKEN_COMPANY_API_KEY: str = os.getenv("TOKEN_COMPANY_API_KEY", "")
-    DEVSWARM_API_KEY: str = os.getenv("DEVSWARM_API_KEY", "")
-    ARIZE_API_KEY: str = os.getenv("ARIZE_API_KEY", "")
-    LEANMCP_API_KEY: str = os.getenv("LEANMCP_API_KEY", "")
     GEMINI_API_KEY: str = os.getenv("GEMINI_API_KEY", "")
     
     model_config = ConfigDict(

@@ -75,9 +75,6 @@ nexhacks/
 
 ### Integrations
 - Token Company
-- DevSwarm
-- Arize
-- LeanMCP
 
 ---
 

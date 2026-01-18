@@ -77,10 +77,11 @@ def _parse_openapi(data: dict, filename: str) -> List[FunctionSignature]:
             
             functions.append(FunctionSignature(
                 name=name,
-                params=params,
+                parameters=params,
                 return_type=return_type,
                 docstring=summary,
-                filename=filename
+                line_number=1,
+                file_path=filename
             ))
     
     return functions
@@ -114,9 +115,10 @@ def _parse_generic_api(data: dict, filename: str, prefix: str = "") -> List[Func
             if 'url' in value or 'endpoint' in value or 'method' in value:
                 functions.append(FunctionSignature(
                     name=key,
-                    params=[],
+                    parameters=[],
                     docstring=str(value.get('description', '')),
-                    filename=filename
+                    line_number=1,
+                    file_path=filename
                 ))
             else:
                 # Recurse into nested objects

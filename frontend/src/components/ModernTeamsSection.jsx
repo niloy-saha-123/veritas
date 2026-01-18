@@ -135,7 +135,7 @@ export const ModernTeamsSection = () => {
               }}>
                 <span>config.py</span>
                 <span>types.ts</span>
-                <span style={{ 
+                <span style={{
                   borderBottom: `2px solid ${COLORS.ink}`,
                   color: COLORS.ink,
                   paddingBottom: '4px'
@@ -251,14 +251,14 @@ export const ModernTeamsSection = () => {
                 color: COLORS.ink,
                 marginBottom: '8px'
               }}>
-                Works in your IDE
+                GitHub App Integration
               </div>
               <div style={{
                 fontFamily: 'IBM Plex Sans, sans-serif',
                 fontSize: '13px',
                 color: COLORS.muted
               }}>
-                via LeanMCP
+                Automatic PR comments
               </div>
             </div>
 
