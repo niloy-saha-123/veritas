@@ -2,7 +2,7 @@
 
 import re
 from typing import List, Optional
-from app.models.schemas import FunctionSignature, Parameter
+from app.models.function_signature import FunctionSignature, Parameter
 
 
 def parse_java(code: str, filename: str = "") -> List[FunctionSignature]:

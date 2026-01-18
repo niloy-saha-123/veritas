@@ -1,7 +1,7 @@
 # Parser Factory - auto-detects language from filename and routes to correct parser
 
 from typing import List
-from app.models.schemas import FunctionSignature
+from app.models.function_signature import FunctionSignature
 
 
 def parse_code(filename: str, code: str) -> List[FunctionSignature]:
