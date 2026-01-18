@@ -101,8 +101,8 @@ def run_tests():
         results = parse_code(filename, code)
         if results:
             for func in results:
-                params = ', '.join(p.name for p in func.params)
-                prefix = "async " if func.is_async else ""
+                params = ', '.join(p.name for p in func.parameters)
+                prefix = "async " if hasattr(func, 'is_async') and func.is_async else ""
                 print(f"  {prefix}{func.name}({params})")
             print(f"  [OK] {len(results)} found\n")
         else:

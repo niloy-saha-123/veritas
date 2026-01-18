@@ -50,12 +50,10 @@ def parse_java(code: str, filename: str = "") -> List[FunctionSignature]:
             
             functions.append(FunctionSignature(
                 name=name,
-                params=params,
+                parameters=params,
                 return_type=return_type,
                 line_number=line_num,
-                is_method=True,
-                class_name=current_class,
-                filename=filename
+                file_path=filename
             ))
             continue
         
@@ -67,12 +65,10 @@ def parse_java(code: str, filename: str = "") -> List[FunctionSignature]:
                 params = _parse_java_params(match.group(2))
                 functions.append(FunctionSignature(
                     name=current_class,
-                    params=params,
+                    parameters=params,
                     return_type=None,
                     line_number=line_num,
-                    is_method=True,
-                    class_name=current_class,
-                    filename=filename
+                    file_path=filename
                 ))
     
     # Attach Javadoc comments
