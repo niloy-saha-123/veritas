@@ -1,8 +1,9 @@
-from fastapi import FastAPI, BackgroundTasks
+from fastapi import FastAPI, BackgroundTasks, Request  # ← Add Request
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
 from typing import Dict, Any
 import uuid
+from app.github.webhook_handler import handle_webhook
 from enum import Enum
 
 app = FastAPI(title="Veritas.dev API", version="1.0.0")
@@ -69,6 +70,12 @@ async def get_results(job_id: str):
     if job_id not in jobs:
         return {"error": "Job not found"}, 404
     return jobs[job_id]
+
+@app.post("/github/webhook")
+async def github_webhook(request: Request):
+    """GitHub App webhook endpoint."""
+    from app.github.webhook_handler import handle_webhook
+    return await handle_webhook(request)
 
 # ============= BACKGROUND PROCESSING =============
 
