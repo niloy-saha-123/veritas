@@ -59,7 +59,7 @@ async def analyze_repo(request: AnalyzeRequest, background_tasks: BackgroundTask
         "progress": None
     }
     
-    # ✅ ENABLE BACKGROUND PROCESSING
+    # Enable background processing
     background_tasks.add_task(process_analysis, job_id, request.github_url)
     
     return JobResponse(job_id=job_id, status=JobStatus.PENDING)
@@ -70,26 +70,28 @@ async def get_results(job_id: str):
         return {"error": "Job not found"}, 404
     return jobs[job_id]
 
-# ============= NEW: BACKGROUND PROCESSING =============
+# ============= BACKGROUND PROCESSING =============
 
 async def process_analysis(job_id: str, github_url: str):
     """Background task to analyze repository."""
     jobs[job_id]["status"] = JobStatus.PROCESSING
     
     try:
+        # Import everything
         from app.utils.git_utils import clone_repo, discover_files, cleanup_repo
         from app.parsers.parser_factory import parse_code
         from app.parsers.markdown_parser import parse_markdown
+        from app.comparison.hybrid_engine import HybridComparator
         
-        # Clone repo
+        # Step 1: Clone repo
         jobs[job_id]["progress"] = "Cloning repository..."
         repo_path = clone_repo(github_url)
         files = discover_files(repo_path)
         
-        jobs[job_id]["progress"] = f"Found {len(files['code'])} code, {len(files['docs'])} docs"
+        jobs[job_id]["progress"] = f"Found {len(files['code'])} code files, {len(files['docs'])} doc files"
         
-        # Parse code files (multi-language!)
-        jobs[job_id]["progress"] = "Parsing code..."
+        # Step 2: Parse code files (multi-language)
+        jobs[job_id]["progress"] = "Parsing code files..."
         code_functions = []
         
         for code_file in files['code']:
@@ -97,49 +99,122 @@ async def process_analysis(job_id: str, github_url: str):
                 with open(code_file, 'r', encoding='utf-8') as f:
                     content = f.read()
                     functions = parse_code(code_file, content)
-                    
-                    for func in functions:
-                        func.filepath = code_file
-                    
                     code_functions.extend(functions)
             except Exception as e:
-                print(f"Error: {code_file}: {e}")
+                print(f"Error parsing {code_file}: {e}")
         
-        jobs[job_id]["progress"] = f"Parsed {len(code_functions)} functions"
+        jobs[job_id]["progress"] = f"Parsed {len(code_functions)} functions from code"
         
-        # Parse docs
-        jobs[job_id]["progress"] = "Parsing docs..."
+        # Step 3: Parse doc files
+        jobs[job_id]["progress"] = "Parsing documentation..."
         doc_functions = []
         
         for doc_file in files['docs']:
             try:
                 with open(doc_file, 'r', encoding='utf-8') as f:
-                    docs = parse_markdown(f.read())
+                    content = f.read()
+                    docs = parse_markdown(content)
                     doc_functions.extend(docs)
             except Exception as e:
-                print(f"Error: {doc_file}: {e}")
+                print(f"Error parsing {doc_file}: {e}")
         
         jobs[job_id]["progress"] = f"Found {len(doc_functions)} documented functions"
         
-        # TODO: Step 4 - Compare (waiting for P2)
+        # Step 4: Compare using HybridComparator
+        jobs[job_id]["progress"] = "Comparing code vs documentation..."
         
-        # Return results
+        comparator = HybridComparator()
+        all_issues = []
+        verified_count = 0
+        total_comparisons = 0
+        
+        # Match functions by name
+        code_func_map = {f.name.lower(): f for f in code_functions}
+        doc_func_map = {f.name.lower(): f for f in doc_functions}
+        
+        # Compare functions that exist in both code and docs
+        for func_name in code_func_map.keys():
+            if func_name in doc_func_map:
+                total_comparisons += 1
+                code_func = code_func_map[func_name]
+                doc_func = doc_func_map[func_name]
+                
+                # Use hybrid comparator
+                result = comparator.compare(code_func, doc_func)
+                
+                if result.matches:
+                    verified_count += 1
+                
+                # Convert issues to dict format
+                for issue in result.issues:
+                    all_issues.append({
+                        "severity": issue.severity,
+                        "function": issue.function,
+                        "issue": issue.issue,
+                        "code_has": issue.code_has,
+                        "docs_say": issue.docs_say,
+                        "suggested_fix": issue.suggested_fix
+                    })
+        
+        # Functions in code but not documented
+        for func_name, code_func in code_func_map.items():
+            if func_name not in doc_func_map:
+                all_issues.append({
+                    "severity": "medium",
+                    "function": code_func.name,
+                    "issue": "Function exists in code but is not documented",
+                    "code_has": f"{code_func.name}({', '.join(p.name for p in code_func.parameters)})",
+                    "docs_say": "No documentation found",
+                    "suggested_fix": f"Add documentation for {code_func.name}()"
+                })
+        
+        # Functions documented but not in code
+        for func_name, doc_func in doc_func_map.items():
+            if func_name not in code_func_map:
+                all_issues.append({
+                    "severity": "high",
+                    "function": doc_func.name,
+                    "issue": "Function is documented but does not exist in code",
+                    "code_has": "Function not found in code",
+                    "docs_say": f"{doc_func.name}({', '.join(p.name for p in doc_func.parameters)})",
+                    "suggested_fix": f"Remove documentation for {doc_func.name}() or check if function was renamed"
+                })
+        
+        # Calculate trust score
+        if total_comparisons > 0:
+            trust_score = int((verified_count / total_comparisons) * 100)
+        else:
+            trust_score = 0
+        
+        # Return final results
         jobs[job_id]["status"] = JobStatus.COMPLETE
         jobs[job_id]["result"] = {
-            "trust_score": 0,
+            "trust_score": trust_score,
             "total_functions": len(code_functions),
             "documented_functions": len(doc_functions),
-            "verified": 0,
-            "issues": [],
+            "verified": verified_count,
+            "issues": all_issues,
             "files_analyzed": {
-                "code": len(files['code']),
-                "docs": len(files['docs'])
+                "code_files": len(files['code']),
+                "doc_files": len(files['docs'])
+            },
+            "stats": {
+                "functions_in_code": len(code_functions),
+                "functions_in_docs": len(doc_functions),
+                "functions_compared": total_comparisons,
+                "functions_matched": verified_count,
+                "undocumented_functions": len(code_functions) - total_comparisons,
+                "orphaned_docs": len(doc_functions) - total_comparisons
             }
         }
         
         cleanup_repo(repo_path)
+        print(f"✅ Analysis complete! Trust score: {trust_score}%")
         
     except Exception as e:
+        print(f"❌ Error in analysis: {e}")
+        import traceback
+        traceback.print_exc()
         jobs[job_id]["status"] = JobStatus.ERROR
         jobs[job_id]["error"] = str(e)
 
