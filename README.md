@@ -1,3 +1,6 @@
+<<<<<<< HEAD
+# veritas
+=======
 # Veritas.dev
 
 ---
@@ -143,3 +146,4 @@ curl -X POST http://localhost:8000/api/v1/analyze \
 ---
 
 **NexHacks**
+>>>>>>> 1cae8de6781e5207cb454ff0ad898dcc7c2cc3d3
